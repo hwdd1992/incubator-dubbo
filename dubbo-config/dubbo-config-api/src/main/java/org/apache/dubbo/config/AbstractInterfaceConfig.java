@@ -48,470 +48,493 @@ import java.util.Map;
  */
 public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
 
-    private static final long serialVersionUID = -1559314110797223229L;
+  private static final long serialVersionUID = -1559314110797223229L;
 
-    // local impl class name for the service interface
-    protected String local;
+  // local impl class name for the service interface
+  protected String local;
 
-    // local stub class name for the service interface
-    protected String stub;
+  // local stub class name for the service interface
+  protected String stub;
 
-    // service monitor
-    protected MonitorConfig monitor;
+  // service monitor
+  protected MonitorConfig monitor;
 
-    // proxy type
-    protected String proxy;
+  // proxy type
+  protected String proxy;
 
-    // cluster type
-    protected String cluster;
+  // cluster type
+  protected String cluster;
 
-    // filter
-    protected String filter;
+  // filter
+  protected String filter;
 
-    // listener
-    protected String listener;
+  // listener
+  protected String listener;
 
-    // owner
-    protected String owner;
+  // owner
+  protected String owner;
 
-    // connection limits, 0 means shared connection, otherwise it defines the connections delegated to the
-    // current service
-    protected Integer connections;
+  // connection limits, 0 means shared connection, otherwise it defines the connections delegated to the
+  // current service
+  protected Integer connections;
 
-    // layer
-    protected String layer;
+  // layer
+  protected String layer;
 
-    // application info
-    protected ApplicationConfig application;
+  // application info
+  protected ApplicationConfig application;
 
-    // module info
-    protected ModuleConfig module;
+  // module info
+  protected ModuleConfig module;
 
-    // registry centers
-    protected List<RegistryConfig> registries;
+  // registry centers
+  protected List<RegistryConfig> registries;
 
-    // connection events
-    protected String onconnect;
+  // connection events
+  protected String onconnect;
 
-    // disconnection events
-    protected String ondisconnect;
+  // disconnection events
+  protected String ondisconnect;
 
-    // callback limits
-    private Integer callbacks;
+  // callback limits
+  private Integer callbacks;
 
-    // the scope for referring/exporting a service, if it's local, it means searching in current JVM only.
-    private String scope;
+  // the scope for referring/exporting a service, if it's local, it means searching in current JVM only.
+  private String scope;
 
-    protected void checkRegistry() {
-        // for backward compatibility
-        if (registries == null || registries.isEmpty()) {
-            String address = ConfigUtils.getProperty("dubbo.registry.address");
-            if (address != null && address.length() > 0) {
-                registries = new ArrayList<RegistryConfig>();
-                String[] as = address.split("\\s*[|]+\\s*");
-                for (String a : as) {
-                    RegistryConfig registryConfig = new RegistryConfig();
-                    registryConfig.setAddress(a);
-                    registries.add(registryConfig);
-                }
-            }
+  protected void checkRegistry() {
+    // for backward compatibility
+    if (registries == null || registries.isEmpty()) {
+      String address = ConfigUtils.getProperty("dubbo.registry.address");
+      if (address != null && address.length() > 0) {
+        registries = new ArrayList<RegistryConfig>();
+        String[] as = address.split("\\s*[|]+\\s*");
+        for (String a : as) {
+          RegistryConfig registryConfig = new RegistryConfig();
+          registryConfig.setAddress(a);
+          registries.add(registryConfig);
         }
-        if ((registries == null || registries.isEmpty())) {
-            throw new IllegalStateException((getClass().getSimpleName().startsWith("Reference")
-                    ? "No such any registry to refer service in consumer "
-                    : "No such any registry to export service in provider ")
-                    + NetUtils.getLocalHost()
-                    + " use dubbo version "
-                    + Version.getVersion()
-                    + ", Please add <dubbo:registry address=\"...\" /> to your spring config. If you want unregister, please set <dubbo:service registry=\"N/A\" />");
-        }
-        for (RegistryConfig registryConfig : registries) {
-            appendProperties(registryConfig);
-        }
+      }
     }
-
-    @SuppressWarnings("deprecation")
-    protected void checkApplication() {
-        // for backward compatibility
-        if (application == null) {
-            String applicationName = ConfigUtils.getProperty("dubbo.application.name");
-            if (applicationName != null && applicationName.length() > 0) {
-                application = new ApplicationConfig();
-            }
-        }
-        if (application == null) {
-            throw new IllegalStateException(
-                    "No such application config! Please add <dubbo:application name=\"...\" /> to your spring config.");
-        }
-        appendProperties(application);
-
-        String wait = ConfigUtils.getProperty(Constants.SHUTDOWN_WAIT_KEY);
-        if (wait != null && wait.trim().length() > 0) {
-            System.setProperty(Constants.SHUTDOWN_WAIT_KEY, wait.trim());
-        } else {
-            wait = ConfigUtils.getProperty(Constants.SHUTDOWN_WAIT_SECONDS_KEY);
-            if (wait != null && wait.trim().length() > 0) {
-                System.setProperty(Constants.SHUTDOWN_WAIT_SECONDS_KEY, wait.trim());
-            }
-        }
+    if ((registries == null || registries.isEmpty())) {
+      throw new IllegalStateException((getClass().getSimpleName().startsWith("Reference")
+          ? "No such any registry to refer service in consumer "
+          : "No such any registry to export service in provider ")
+          + NetUtils.getLocalHost()
+          + " use dubbo version "
+          + Version.getVersion()
+          + ", Please add <dubbo:registry address=\"...\" /> to your spring config. If you want unregister, please set <dubbo:service registry=\"N/A\" />");
     }
-
-    protected List<URL> loadRegistries(boolean provider) {
-        checkRegistry();
-        List<URL> registryList = new ArrayList<URL>();
-        if (registries != null && !registries.isEmpty()) {
-            for (RegistryConfig config : registries) {
-                String address = config.getAddress();
-                if (address == null || address.length() == 0) {
-                    address = Constants.ANYHOST_VALUE;
-                }
-                String sysaddress = System.getProperty("dubbo.registry.address");
-                if (sysaddress != null && sysaddress.length() > 0) {
-                    address = sysaddress;
-                }
-                if (address.length() > 0 && !RegistryConfig.NO_AVAILABLE.equalsIgnoreCase(address)) {
-                    Map<String, String> map = new HashMap<String, String>();
-                    appendParameters(map, application);
-                    appendParameters(map, config);
-                    map.put("path", RegistryService.class.getName());
-                    map.put("dubbo", Version.getProtocolVersion());
-                    map.put(Constants.TIMESTAMP_KEY, String.valueOf(System.currentTimeMillis()));
-                    if (ConfigUtils.getPid() > 0) {
-                        map.put(Constants.PID_KEY, String.valueOf(ConfigUtils.getPid()));
-                    }
-                    if (!map.containsKey("protocol")) {
-                        if (ExtensionLoader.getExtensionLoader(RegistryFactory.class).hasExtension("remote")) {
-                            map.put("protocol", "remote");
-                        } else {
-                            map.put("protocol", "dubbo");
-                        }
-                    }
-                    List<URL> urls = UrlUtils.parseURLs(address, map);
-                    for (URL url : urls) {
-                        url = url.addParameter(Constants.REGISTRY_KEY, url.getProtocol());
-                        url = url.setProtocol(Constants.REGISTRY_PROTOCOL);
-                        if ((provider && url.getParameter(Constants.REGISTER_KEY, true))
-                                || (!provider && url.getParameter(Constants.SUBSCRIBE_KEY, true))) {
-                            registryList.add(url);
-                        }
-                    }
-                }
-            }
-        }
-        return registryList;
+    for (RegistryConfig registryConfig : registries) {
+      appendProperties(registryConfig);
     }
+  }
 
-    protected URL loadMonitor(URL registryURL) {
-        if (monitor == null) {
-            String monitorAddress = ConfigUtils.getProperty("dubbo.monitor.address");
-            String monitorProtocol = ConfigUtils.getProperty("dubbo.monitor.protocol");
-            if ((monitorAddress == null || monitorAddress.length() == 0) && (monitorProtocol == null || monitorProtocol.length() == 0)) {
-                return null;
-            }
+  @SuppressWarnings("deprecation")
+  protected void checkApplication() {
+    // for backward compatibility
+    if (application == null) {
+      String applicationName = ConfigUtils.getProperty("dubbo.application.name");
+      if (applicationName != null && applicationName.length() > 0) {
+        application = new ApplicationConfig();
+      }
+    }
+    if (application == null) {
+      throw new IllegalStateException(
+          "No such application config! Please add <dubbo:application name=\"...\" /> to your spring config.");
+    }
+    appendProperties(application);
 
-            monitor = new MonitorConfig();
-            if (monitorAddress != null && monitorAddress.length() > 0) {
-                monitor.setAddress(monitorAddress);
-            }
-            if (monitorProtocol != null && monitorProtocol.length() > 0) {
-                monitor.setProtocol(monitorProtocol);
-            }
+    String wait = ConfigUtils.getProperty(Constants.SHUTDOWN_WAIT_KEY);
+    if (wait != null && wait.trim().length() > 0) {
+      System.setProperty(Constants.SHUTDOWN_WAIT_KEY, wait.trim());
+    } else {
+      wait = ConfigUtils.getProperty(Constants.SHUTDOWN_WAIT_SECONDS_KEY);
+      if (wait != null && wait.trim().length() > 0) {
+        System.setProperty(Constants.SHUTDOWN_WAIT_SECONDS_KEY, wait.trim());
+      }
+    }
+  }
+
+  protected List<URL> loadRegistries(boolean provider) {
+    checkRegistry();
+    List<URL> registryList = new ArrayList<URL>();
+    if (registries != null && !registries.isEmpty()) {
+      for (RegistryConfig config : registries) {
+        String address = config.getAddress();
+        if (address == null || address.length() == 0) {
+          address = Constants.ANYHOST_VALUE;
         }
-        appendProperties(monitor);
-        Map<String, String> map = new HashMap<String, String>();
-        map.put(Constants.INTERFACE_KEY, MonitorService.class.getName());
-        map.put("dubbo", Version.getProtocolVersion());
-        map.put(Constants.TIMESTAMP_KEY, String.valueOf(System.currentTimeMillis()));
-        if (ConfigUtils.getPid() > 0) {
-            map.put(Constants.PID_KEY, String.valueOf(ConfigUtils.getPid()));
-        }
-        appendParameters(map, monitor);
-        String address = monitor.getAddress();
-        String sysaddress = System.getProperty("dubbo.monitor.address");
+        String sysaddress = System.getProperty("dubbo.registry.address");
         if (sysaddress != null && sysaddress.length() > 0) {
-            address = sysaddress;
+          address = sysaddress;
         }
-        if (ConfigUtils.isNotEmpty(address)) {
-            if (!map.containsKey(Constants.PROTOCOL_KEY)) {
-                if (ExtensionLoader.getExtensionLoader(MonitorFactory.class).hasExtension("logstat")) {
-                    map.put(Constants.PROTOCOL_KEY, "logstat");
-                } else {
-                    map.put(Constants.PROTOCOL_KEY, "dubbo");
-                }
-            }
-            return UrlUtils.parseURL(address, map);
-        } else if (Constants.REGISTRY_PROTOCOL.equals(monitor.getProtocol()) && registryURL != null) {
-            return registryURL.setProtocol("dubbo").addParameter(Constants.PROTOCOL_KEY, "registry").addParameterAndEncoded(Constants.REFER_KEY, StringUtils.toQueryString(map));
-        }
-        return null;
-    }
-
-    protected void checkInterfaceAndMethods(Class<?> interfaceClass, List<MethodConfig> methods) {
-        // interface cannot be null
-        if (interfaceClass == null) {
-            throw new IllegalStateException("interface not allow null!");
-        }
-        // to verify interfaceClass is an interface
-        if (!interfaceClass.isInterface()) {
-            throw new IllegalStateException("The interface class " + interfaceClass + " is not a interface!");
-        }
-        // check if methods exist in the interface
-        if (methods != null && !methods.isEmpty()) {
-            for (MethodConfig methodBean : methods) {
-                String methodName = methodBean.getName();
-                if (methodName == null || methodName.length() == 0) {
-                    throw new IllegalStateException("<dubbo:method> name attribute is required! Please check: <dubbo:service interface=\"" + interfaceClass.getName() + "\" ... ><dubbo:method name=\"\" ... /></<dubbo:reference>");
-                }
-                boolean hasMethod = false;
-                for (java.lang.reflect.Method method : interfaceClass.getMethods()) {
-                    if (method.getName().equals(methodName)) {
-                        hasMethod = true;
-                        break;
-                    }
-                }
-                if (!hasMethod) {
-                    throw new IllegalStateException("The interface " + interfaceClass.getName()
-                            + " not found method " + methodName);
-                }
-            }
-        }
-    }
-
-    protected void checkStubAndMock(Class<?> interfaceClass) {
-        if (ConfigUtils.isNotEmpty(local)) {
-            Class<?> localClass = ConfigUtils.isDefault(local) ? ReflectUtils.forName(interfaceClass.getName() + "Local") : ReflectUtils.forName(local);
-            if (!interfaceClass.isAssignableFrom(localClass)) {
-                throw new IllegalStateException("The local implementation class " + localClass.getName() + " not implement interface " + interfaceClass.getName());
-            }
-            try {
-                ReflectUtils.findConstructor(localClass, interfaceClass);
-            } catch (NoSuchMethodException e) {
-                throw new IllegalStateException("No such constructor \"public " + localClass.getSimpleName() + "(" + interfaceClass.getName() + ")\" in local implementation class " + localClass.getName());
-            }
-        }
-        if (ConfigUtils.isNotEmpty(stub)) {
-            Class<?> localClass = ConfigUtils.isDefault(stub) ? ReflectUtils.forName(interfaceClass.getName() + "Stub") : ReflectUtils.forName(stub);
-            if (!interfaceClass.isAssignableFrom(localClass)) {
-                throw new IllegalStateException("The local implementation class " + localClass.getName() + " not implement interface " + interfaceClass.getName());
-            }
-            try {
-                ReflectUtils.findConstructor(localClass, interfaceClass);
-            } catch (NoSuchMethodException e) {
-                throw new IllegalStateException("No such constructor \"public " + localClass.getSimpleName() + "(" + interfaceClass.getName() + ")\" in local implementation class " + localClass.getName());
-            }
-        }
-        if (ConfigUtils.isNotEmpty(mock)) {
-            if (mock.startsWith(Constants.RETURN_PREFIX)) {
-                String value = mock.substring(Constants.RETURN_PREFIX.length());
-                try {
-                    MockInvoker.parseMockValue(value);
-                } catch (Exception e) {
-                    throw new IllegalStateException("Illegal mock json value in <dubbo:service ... mock=\"" + mock + "\" />");
-                }
+        if (address.length() > 0 && !RegistryConfig.NO_AVAILABLE.equalsIgnoreCase(address)) {
+          Map<String, String> map = new HashMap<String, String>();
+          appendParameters(map, application);
+          appendParameters(map, config);
+          map.put("path", RegistryService.class.getName());
+          map.put("dubbo", Version.getProtocolVersion());
+          map.put(Constants.TIMESTAMP_KEY, String.valueOf(System.currentTimeMillis()));
+          if (ConfigUtils.getPid() > 0) {
+            map.put(Constants.PID_KEY, String.valueOf(ConfigUtils.getPid()));
+          }
+          if (!map.containsKey("protocol")) {
+            if (ExtensionLoader.getExtensionLoader(RegistryFactory.class).hasExtension("remote")) {
+              map.put("protocol", "remote");
             } else {
-                Class<?> mockClass = ConfigUtils.isDefault(mock) ? ReflectUtils.forName(interfaceClass.getName() + "Mock") : ReflectUtils.forName(mock);
-                if (!interfaceClass.isAssignableFrom(mockClass)) {
-                    throw new IllegalStateException("The mock implementation class " + mockClass.getName() + " not implement interface " + interfaceClass.getName());
-                }
-                try {
-                    mockClass.getConstructor(new Class<?>[0]);
-                } catch (NoSuchMethodException e) {
-                    throw new IllegalStateException("No such empty constructor \"public " + mockClass.getSimpleName() + "()\" in mock implementation class " + mockClass.getName());
-                }
+              map.put("protocol", "dubbo");
             }
+          }
+          List<URL> urls = UrlUtils.parseURLs(address, map);
+          for (URL url : urls) {
+            url = url.addParameter(Constants.REGISTRY_KEY, url.getProtocol());
+            url = url.setProtocol(Constants.REGISTRY_PROTOCOL);
+            if ((provider && url.getParameter(Constants.REGISTER_KEY, true))
+                || (!provider && url.getParameter(Constants.SUBSCRIBE_KEY, true))) {
+              registryList.add(url);
+            }
+          }
         }
+      }
     }
+    return registryList;
+  }
 
-    /**
-     * @return local
-     * @deprecated Replace to <code>getStub()</code>
-     */
-    @Deprecated
-    public String getLocal() {
-        return local;
+  protected URL loadMonitor(URL registryURL) {
+    if (monitor == null) {
+      String monitorAddress = ConfigUtils.getProperty("dubbo.monitor.address");
+      String monitorProtocol = ConfigUtils.getProperty("dubbo.monitor.protocol");
+      if ((monitorAddress == null || monitorAddress.length() == 0) && (monitorProtocol == null
+          || monitorProtocol.length() == 0)) {
+        return null;
+      }
+
+      monitor = new MonitorConfig();
+      if (monitorAddress != null && monitorAddress.length() > 0) {
+        monitor.setAddress(monitorAddress);
+      }
+      if (monitorProtocol != null && monitorProtocol.length() > 0) {
+        monitor.setProtocol(monitorProtocol);
+      }
     }
-
-    /**
-     * @param local
-     * @deprecated Replace to <code>setStub(Boolean)</code>
-     */
-    @Deprecated
-    public void setLocal(Boolean local) {
-        if (local == null) {
-            setLocal((String) null);
+    appendProperties(monitor);
+    Map<String, String> map = new HashMap<String, String>();
+    map.put(Constants.INTERFACE_KEY, MonitorService.class.getName());
+    map.put("dubbo", Version.getProtocolVersion());
+    map.put(Constants.TIMESTAMP_KEY, String.valueOf(System.currentTimeMillis()));
+    if (ConfigUtils.getPid() > 0) {
+      map.put(Constants.PID_KEY, String.valueOf(ConfigUtils.getPid()));
+    }
+    appendParameters(map, monitor);
+    String address = monitor.getAddress();
+    String sysaddress = System.getProperty("dubbo.monitor.address");
+    if (sysaddress != null && sysaddress.length() > 0) {
+      address = sysaddress;
+    }
+    if (ConfigUtils.isNotEmpty(address)) {
+      if (!map.containsKey(Constants.PROTOCOL_KEY)) {
+        if (ExtensionLoader.getExtensionLoader(MonitorFactory.class).hasExtension("logstat")) {
+          map.put(Constants.PROTOCOL_KEY, "logstat");
         } else {
-            setLocal(String.valueOf(local));
+          map.put(Constants.PROTOCOL_KEY, "dubbo");
         }
+      }
+      return UrlUtils.parseURL(address, map);
+    } else if (Constants.REGISTRY_PROTOCOL.equals(monitor.getProtocol()) && registryURL != null) {
+      return registryURL.setProtocol("dubbo").addParameter(Constants.PROTOCOL_KEY, "registry")
+          .addParameterAndEncoded(Constants.REFER_KEY, StringUtils.toQueryString(map));
     }
+    return null;
+  }
 
-    /**
-     * @param local
-     * @deprecated Replace to <code>setStub(String)</code>
-     */
-    @Deprecated
-    public void setLocal(String local) {
-        checkName("local", local);
-        this.local = local;
+  protected void checkInterfaceAndMethods(Class<?> interfaceClass, List<MethodConfig> methods) {
+    // interface cannot be null
+    if (interfaceClass == null) {
+      throw new IllegalStateException("interface not allow null!");
     }
-
-    public String getStub() {
-        return stub;
+    // to verify interfaceClass is an interface
+    if (!interfaceClass.isInterface()) {
+      throw new IllegalStateException(
+          "The interface class " + interfaceClass + " is not a interface!");
     }
-
-    public void setStub(Boolean stub) {
-        if (stub == null) {
-            setStub((String) null);
-        } else {
-            setStub(String.valueOf(stub));
+    // check if methods exist in the interface
+    if (methods != null && !methods.isEmpty()) {
+      for (MethodConfig methodBean : methods) {
+        String methodName = methodBean.getName();
+        if (methodName == null || methodName.length() == 0) {
+          throw new IllegalStateException(
+              "<dubbo:method> name attribute is required! Please check: <dubbo:service interface=\""
+                  + interfaceClass.getName()
+                  + "\" ... ><dubbo:method name=\"\" ... /></<dubbo:reference>");
         }
+        boolean hasMethod = false;
+        for (java.lang.reflect.Method method : interfaceClass.getMethods()) {
+          if (method.getName().equals(methodName)) {
+            hasMethod = true;
+            break;
+          }
+        }
+        if (!hasMethod) {
+          throw new IllegalStateException("The interface " + interfaceClass.getName()
+              + " not found method " + methodName);
+        }
+      }
     }
+  }
 
-    public void setStub(String stub) {
-        checkName("stub", stub);
-        this.stub = stub;
+  protected void checkStubAndMock(Class<?> interfaceClass) {
+    if (ConfigUtils.isNotEmpty(local)) {
+      Class<?> localClass =
+          ConfigUtils.isDefault(local) ? ReflectUtils.forName(interfaceClass.getName() + "Local")
+              : ReflectUtils.forName(local);
+      if (!interfaceClass.isAssignableFrom(localClass)) {
+        throw new IllegalStateException(
+            "The local implementation class " + localClass.getName() + " not implement interface "
+                + interfaceClass.getName());
+      }
+      try {
+        ReflectUtils.findConstructor(localClass, interfaceClass);
+      } catch (NoSuchMethodException e) {
+        throw new IllegalStateException(
+            "No such constructor \"public " + localClass.getSimpleName() + "(" + interfaceClass
+                .getName() + ")\" in local implementation class " + localClass.getName());
+      }
     }
+    if (ConfigUtils.isNotEmpty(stub)) {
+      Class<?> localClass =
+          ConfigUtils.isDefault(stub) ? ReflectUtils.forName(interfaceClass.getName() + "Stub")
+              : ReflectUtils.forName(stub);
+      if (!interfaceClass.isAssignableFrom(localClass)) {
+        throw new IllegalStateException(
+            "The local implementation class " + localClass.getName() + " not implement interface "
+                + interfaceClass.getName());
+      }
+      try {
+        ReflectUtils.findConstructor(localClass, interfaceClass);
+      } catch (NoSuchMethodException e) {
+        throw new IllegalStateException(
+            "No such constructor \"public " + localClass.getSimpleName() + "(" + interfaceClass
+                .getName() + ")\" in local implementation class " + localClass.getName());
+      }
+    }
+    if (ConfigUtils.isNotEmpty(mock)) {
+      if (mock.startsWith(Constants.RETURN_PREFIX)) {
+        String value = mock.substring(Constants.RETURN_PREFIX.length());
+        try {
+          MockInvoker.parseMockValue(value);
+        } catch (Exception e) {
+          throw new IllegalStateException(
+              "Illegal mock json value in <dubbo:service ... mock=\"" + mock + "\" />");
+        }
+      } else {
+        Class<?> mockClass =
+            ConfigUtils.isDefault(mock) ? ReflectUtils.forName(interfaceClass.getName() + "Mock")
+                : ReflectUtils.forName(mock);
+        if (!interfaceClass.isAssignableFrom(mockClass)) {
+          throw new IllegalStateException(
+              "The mock implementation class " + mockClass.getName() + " not implement interface "
+                  + interfaceClass.getName());
+        }
+        try {
+          mockClass.getConstructor(new Class<?>[0]);
+        } catch (NoSuchMethodException e) {
+          throw new IllegalStateException(
+              "No such empty constructor \"public " + mockClass.getSimpleName()
+                  + "()\" in mock implementation class " + mockClass.getName());
+        }
+      }
+    }
+  }
 
-    public String getCluster() {
-        return cluster;
-    }
+  /**
+   * @return local
+   * @deprecated Replace to <code>getStub()</code>
+   */
+  @Deprecated
+  public String getLocal() {
+    return local;
+  }
 
-    public void setCluster(String cluster) {
-        checkExtension(Cluster.class, "cluster", cluster);
-        this.cluster = cluster;
+  /**
+   * @deprecated Replace to <code>setStub(Boolean)</code>
+   */
+  @Deprecated
+  public void setLocal(Boolean local) {
+    if (local == null) {
+      setLocal((String) null);
+    } else {
+      setLocal(String.valueOf(local));
     }
+  }
 
-    public String getProxy() {
-        return proxy;
-    }
+  /**
+   * @deprecated Replace to <code>setStub(String)</code>
+   */
+  @Deprecated
+  public void setLocal(String local) {
+    checkName("local", local);
+    this.local = local;
+  }
 
-    public void setProxy(String proxy) {
-        checkExtension(ProxyFactory.class, "proxy", proxy);
-        this.proxy = proxy;
-    }
+  public String getStub() {
+    return stub;
+  }
 
-    public Integer getConnections() {
-        return connections;
+  public void setStub(Boolean stub) {
+    if (stub == null) {
+      setStub((String) null);
+    } else {
+      setStub(String.valueOf(stub));
     }
+  }
 
-    public void setConnections(Integer connections) {
-        this.connections = connections;
-    }
+  public void setStub(String stub) {
+    checkName("stub", stub);
+    this.stub = stub;
+  }
 
-    @Parameter(key = Constants.REFERENCE_FILTER_KEY, append = true)
-    public String getFilter() {
-        return filter;
-    }
+  public String getCluster() {
+    return cluster;
+  }
 
-    public void setFilter(String filter) {
-        checkMultiExtension(Filter.class, "filter", filter);
-        this.filter = filter;
-    }
+  public void setCluster(String cluster) {
+    checkExtension(Cluster.class, "cluster", cluster);
+    this.cluster = cluster;
+  }
 
-    @Parameter(key = Constants.INVOKER_LISTENER_KEY, append = true)
-    public String getListener() {
-        return listener;
-    }
+  public String getProxy() {
+    return proxy;
+  }
 
-    public void setListener(String listener) {
-        checkMultiExtension(InvokerListener.class, "listener", listener);
-        this.listener = listener;
-    }
+  public void setProxy(String proxy) {
+    checkExtension(ProxyFactory.class, "proxy", proxy);
+    this.proxy = proxy;
+  }
 
-    public String getLayer() {
-        return layer;
-    }
+  public Integer getConnections() {
+    return connections;
+  }
 
-    public void setLayer(String layer) {
-        checkNameHasSymbol("layer", layer);
-        this.layer = layer;
-    }
+  public void setConnections(Integer connections) {
+    this.connections = connections;
+  }
 
-    public ApplicationConfig getApplication() {
-        return application;
-    }
+  @Parameter(key = Constants.REFERENCE_FILTER_KEY, append = true)
+  public String getFilter() {
+    return filter;
+  }
 
-    public void setApplication(ApplicationConfig application) {
-        this.application = application;
-    }
+  public void setFilter(String filter) {
+    checkMultiExtension(Filter.class, "filter", filter);
+    this.filter = filter;
+  }
 
-    public ModuleConfig getModule() {
-        return module;
-    }
+  @Parameter(key = Constants.INVOKER_LISTENER_KEY, append = true)
+  public String getListener() {
+    return listener;
+  }
 
-    public void setModule(ModuleConfig module) {
-        this.module = module;
-    }
+  public void setListener(String listener) {
+    checkMultiExtension(InvokerListener.class, "listener", listener);
+    this.listener = listener;
+  }
 
-    public RegistryConfig getRegistry() {
-        return registries == null || registries.isEmpty() ? null : registries.get(0);
-    }
+  public String getLayer() {
+    return layer;
+  }
 
-    public void setRegistry(RegistryConfig registry) {
-        List<RegistryConfig> registries = new ArrayList<RegistryConfig>(1);
-        registries.add(registry);
-        this.registries = registries;
-    }
+  public void setLayer(String layer) {
+    checkNameHasSymbol("layer", layer);
+    this.layer = layer;
+  }
 
-    public List<RegistryConfig> getRegistries() {
-        return registries;
-    }
+  public ApplicationConfig getApplication() {
+    return application;
+  }
 
-    @SuppressWarnings({"unchecked"})
-    public void setRegistries(List<? extends RegistryConfig> registries) {
-        this.registries = (List<RegistryConfig>) registries;
-    }
+  public void setApplication(ApplicationConfig application) {
+    this.application = application;
+  }
 
-    public MonitorConfig getMonitor() {
-        return monitor;
-    }
+  public ModuleConfig getModule() {
+    return module;
+  }
 
-    public void setMonitor(String monitor) {
-        this.monitor = new MonitorConfig(monitor);
-    }
+  public void setModule(ModuleConfig module) {
+    this.module = module;
+  }
 
-    public void setMonitor(MonitorConfig monitor) {
-        this.monitor = monitor;
-    }
+  public RegistryConfig getRegistry() {
+    return registries == null || registries.isEmpty() ? null : registries.get(0);
+  }
 
-    public String getOwner() {
-        return owner;
-    }
+  public void setRegistry(RegistryConfig registry) {
+    List<RegistryConfig> registries = new ArrayList<RegistryConfig>(1);
+    registries.add(registry);
+    this.registries = registries;
+  }
 
-    public void setOwner(String owner) {
-        checkMultiName("owner", owner);
-        this.owner = owner;
-    }
+  public List<RegistryConfig> getRegistries() {
+    return registries;
+  }
 
-    public Integer getCallbacks() {
-        return callbacks;
-    }
+  @SuppressWarnings({"unchecked"})
+  public void setRegistries(List<? extends RegistryConfig> registries) {
+    this.registries = (List<RegistryConfig>) registries;
+  }
 
-    public void setCallbacks(Integer callbacks) {
-        this.callbacks = callbacks;
-    }
+  public MonitorConfig getMonitor() {
+    return monitor;
+  }
 
-    public String getOnconnect() {
-        return onconnect;
-    }
+  public void setMonitor(String monitor) {
+    this.monitor = new MonitorConfig(monitor);
+  }
 
-    public void setOnconnect(String onconnect) {
-        this.onconnect = onconnect;
-    }
+  public void setMonitor(MonitorConfig monitor) {
+    this.monitor = monitor;
+  }
 
-    public String getOndisconnect() {
-        return ondisconnect;
-    }
+  public String getOwner() {
+    return owner;
+  }
 
-    public void setOndisconnect(String ondisconnect) {
-        this.ondisconnect = ondisconnect;
-    }
+  public void setOwner(String owner) {
+    checkMultiName("owner", owner);
+    this.owner = owner;
+  }
 
-    public String getScope() {
-        return scope;
-    }
+  public Integer getCallbacks() {
+    return callbacks;
+  }
 
-    public void setScope(String scope) {
-        this.scope = scope;
-    }
+  public void setCallbacks(Integer callbacks) {
+    this.callbacks = callbacks;
+  }
+
+  public String getOnconnect() {
+    return onconnect;
+  }
+
+  public void setOnconnect(String onconnect) {
+    this.onconnect = onconnect;
+  }
+
+  public String getOndisconnect() {
+    return ondisconnect;
+  }
+
+  public void setOndisconnect(String ondisconnect) {
+    this.ondisconnect = ondisconnect;
+  }
+
+  public String getScope() {
+    return scope;
+  }
+
+  public void setScope(String scope) {
+    this.scope = scope;
+  }
 
 }

@@ -50,12 +50,12 @@ public class ProxyFactory$Adaptive implements org.apache.dubbo.rpc.ProxyFactory{
     return extension.getProxy(arg0, arg1);
   }
 
-  public org.apache.dubbo.rpc.Invoker getInvoker(java.lang.Object arg0, java.lang.Class arg1,
-      org.apache.dubbo.common.URL arg2) throws org.apache.dubbo.rpc.RpcException {
-    if (arg2 == null) {
+  public org.apache.dubbo.rpc.Invoker getInvoker(java.lang.Object ref, java.lang.Class clazz,
+      org.apache.dubbo.common.URL exportUrL) throws org.apache.dubbo.rpc.RpcException {
+    if (exportUrL == null) {
       throw new IllegalArgumentException("url == null");
     }
-    org.apache.dubbo.common.URL url = arg2;
+    org.apache.dubbo.common.URL url = exportUrL;
     String extName = url.getParameter("proxy", "javassist");
     if (extName == null) {
       throw new IllegalStateException(
@@ -64,6 +64,6 @@ public class ProxyFactory$Adaptive implements org.apache.dubbo.rpc.ProxyFactory{
     }
     org.apache.dubbo.rpc.ProxyFactory extension = (org.apache.dubbo.rpc.ProxyFactory) ExtensionLoader
         .getExtensionLoader(org.apache.dubbo.rpc.ProxyFactory.class).getExtension(extName);
-    return extension.getInvoker(arg0, arg1, arg2);
+    return extension.getInvoker(ref, clazz, exportUrL);
   }
 }

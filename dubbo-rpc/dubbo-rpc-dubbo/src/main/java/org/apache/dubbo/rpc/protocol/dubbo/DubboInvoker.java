@@ -16,6 +16,8 @@
  */
 package org.apache.dubbo.rpc.protocol.dubbo;
 
+import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.utils.AtomicPositiveInteger;
@@ -35,9 +37,6 @@ import org.apache.dubbo.rpc.RpcResult;
 import org.apache.dubbo.rpc.SimpleAsyncRpcResult;
 import org.apache.dubbo.rpc.protocol.AbstractInvoker;
 import org.apache.dubbo.rpc.support.RpcUtils;
-
-import java.util.Set;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * DubboInvoker

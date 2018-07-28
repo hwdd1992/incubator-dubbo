@@ -33,22 +33,20 @@ import java.util.List;
  */
 public interface Router extends Comparable<Router> {
 
-    /**
-     * get the router url.
-     *
-     * @return url
-     */
-    URL getUrl();
+  /**
+   * get the router url.
+   *
+   * @return url
+   */
+  URL getUrl();
 
-    /**
-     * route.
-     *
-     * @param invokers
-     * @param url        refer url
-     * @param invocation
-     * @return routed invokers
-     * @throws RpcException
-     */
-    <T> List<Invoker<T>> route(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException;
+  /**
+   * route.
+   *
+   * @param url refer url
+   * @return routed invokers
+   */
+  <T> List<Invoker<T>> route(List<Invoker<T>> invokers, URL url, Invocation invocation)
+      throws RpcException;
 
 }

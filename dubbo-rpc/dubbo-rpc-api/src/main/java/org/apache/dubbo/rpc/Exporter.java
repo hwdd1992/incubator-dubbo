@@ -18,6 +18,7 @@ package org.apache.dubbo.rpc;
 
 /**
  * Exporter. (API/SPI, Prototype, ThreadSafe)
+ * 维护invoker的生命周期。
  *
  * @see org.apache.dubbo.rpc.Protocol#export(Invoker)
  * @see org.apache.dubbo.rpc.ExporterListener
@@ -25,20 +26,20 @@ package org.apache.dubbo.rpc;
  */
 public interface Exporter<T> {
 
-    /**
-     * get invoker.
-     *
-     * @return invoker
-     */
-    Invoker<T> getInvoker();
+  /**
+   * get invoker.
+   *
+   * @return invoker
+   */
+  Invoker<T> getInvoker();
 
-    /**
-     * unexport.
-     * <p>
-     * <code>
-     * getInvoker().destroy();
-     * </code>
-     */
-    void unexport();
+  /**
+   * unexport.
+   * <p>
+   * <code>
+   * getInvoker().destroy();
+   * </code>
+   */
+  void unexport();
 
 }

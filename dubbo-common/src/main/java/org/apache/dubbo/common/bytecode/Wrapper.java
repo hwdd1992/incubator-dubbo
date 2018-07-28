@@ -285,55 +285,12 @@ public abstract class Wrapper {
     cc.addMethod(c2.toString());
     cc.addMethod(c3.toString());
 
-    if (logger.isDebugEnabled()) {
-      StringBuilder c4 = new StringBuilder();
-      boolean publicFlag = Modifier.isPublic(c.getModifiers());
-      if (publicFlag) {
-        c4.append("package ").append(Wrapper.class.getPackage().getName()).append(";")
-            .append("\r\n")
-            .append("public ")
-            .append("class ")
-            .append(Wrapper.class.getName());
-      } else {
-        c4.append("package ").append(c.getPackage().getName()).append(";")
-            .append("\r\n")
-            .append("class ")
-            .append(c.getName())
-            .append("$sw ");
-      }
-      c4.append(id)
-          .append(" ")
-          .append("extends ").append(Wrapper.class.getName()).append(" ")
-          .append("{ \r\n")
-          .append("public static String[] pns;").append("\r\n")
-          .append("public static ").append(Map.class.getName()).append(" ").append("pts;")
-          .append("\r\n")
-          .append("public static String[] mns;").append("\r\n")
-          .append("public static String[] dmns;").append("\r\n");
-
-      for (int i = 0, len = ms.size(); i < len; i++) {
-        c4.append("public static Class[] mts").append(i).append(";").append("\r\n");
-      }
-      c4.append("public String[] getPropertyNames(){ return pns; }")
-          .append("public boolean hasProperty(String n){ return pts.containsKey($1); }")
-          .append("\r\n")
-          .append("public Class getPropertyType(String n){ return (Class)pts.get($1); }")
-          .append("\r\n")
-          .append("public String[] getMethodNames(){ return mns; }")
-          .append("\r\n")
-          .append("public String[] getDeclaredMethodNames(){ return dmns; }")
-          .append("\r\n")
-          .append(c1.toString())
-          .append("\r\n")
-          .append(c2.toString())
-          .append("\r\n")
-          .append(c3.toString())
-          .append("\r\n")
-          .append("}");
-      logger.debug(c4.toString());
-    }
     try {
       Class<?> wc = cc.toClass();
+      if (logger.isDebugEnabled()) {
+        cc.genrateClassFile();
+      }
+
       // setup static field.
       wc.getField("pts").set(null, pts);
       wc.getField("pns").set(null, pts.keySet().toArray(new String[0]));

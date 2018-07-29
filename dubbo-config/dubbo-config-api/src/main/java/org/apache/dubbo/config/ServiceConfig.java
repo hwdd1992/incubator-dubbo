@@ -525,8 +525,8 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
             Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass,
                 registryURL.addParameterAndEncoded(Constants.EXPORT_KEY, url.toFullString()));
-            DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(
-                invoker, this);
+            DelegateProviderMetaDataInvoker wrapperInvoker =
+                new DelegateProviderMetaDataInvoker(invoker, this);
 
             Exporter<?> exporter = protocol.export(wrapperInvoker);
             exporters.add(exporter);

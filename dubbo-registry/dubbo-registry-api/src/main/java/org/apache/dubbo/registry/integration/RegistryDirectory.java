@@ -163,28 +163,26 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     registry.subscribe(url, this);
   }
 
-  @Override
-  public void destroy() {
-    if (isDestroyed()) {
-      return;
+    @Override
+    public void destroy() {
+        if (isDestroyed()) {
+            return;
+        }
+        // unsubscribe.
+        try {
+            if (getConsumerUrl() != null && registry != null && registry.isAvailable()) {
+                registry.unsubscribe(getConsumerUrl(), this);
+            }
+        } catch (Throwable t) {
+            logger.warn("unexpected error when unsubscribe service " + serviceKey + "from registry" + registry.getUrl(), t);
+        }
+        super.destroy(); // must be executed after unsubscribing
+        try {
+            destroyAllInvokers();
+        } catch (Throwable t) {
+            logger.warn("Failed to destroy service " + serviceKey, t);
+        }
     }
-    // unsubscribe.
-    try {
-      if (getConsumerUrl() != null && registry != null && registry.isAvailable()) {
-        registry.unsubscribe(getConsumerUrl(), this);
-      }
-    } catch (Throwable t) {
-      logger.warn(
-          "unexpeced error when unsubscribe service " + serviceKey + "from registry" + registry
-              .getUrl(), t);
-    }
-    super.destroy(); // must be executed after unsubscribing
-    try {
-      destroyAllInvokers();
-    } catch (Throwable t) {
-      logger.warn("Failed to destroy service " + serviceKey, t);
-    }
-  }
 
   @Override
   public synchronized void notify(List<URL> urls) {

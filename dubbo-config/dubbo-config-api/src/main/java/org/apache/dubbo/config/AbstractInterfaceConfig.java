@@ -210,43 +210,51 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
         return null;
       }
 
-      monitor = new MonitorConfig();
-      if (monitorAddress != null && monitorAddress.length() > 0) {
-        monitor.setAddress(monitorAddress);
-      }
-      if (monitorProtocol != null && monitorProtocol.length() > 0) {
-        monitor.setProtocol(monitorProtocol);
-      }
-    }
-    appendProperties(monitor);
-    Map<String, String> map = new HashMap<String, String>();
-    map.put(Constants.INTERFACE_KEY, MonitorService.class.getName());
-    map.put("dubbo", Version.getProtocolVersion());
-    map.put(Constants.TIMESTAMP_KEY, String.valueOf(System.currentTimeMillis()));
-    if (ConfigUtils.getPid() > 0) {
-      map.put(Constants.PID_KEY, String.valueOf(ConfigUtils.getPid()));
-    }
-    appendParameters(map, monitor);
-    String address = monitor.getAddress();
-    String sysaddress = System.getProperty("dubbo.monitor.address");
-    if (sysaddress != null && sysaddress.length() > 0) {
-      address = sysaddress;
-    }
-    if (ConfigUtils.isNotEmpty(address)) {
-      if (!map.containsKey(Constants.PROTOCOL_KEY)) {
-        if (ExtensionLoader.getExtensionLoader(MonitorFactory.class).hasExtension("logstat")) {
-          map.put(Constants.PROTOCOL_KEY, "logstat");
-        } else {
-          map.put(Constants.PROTOCOL_KEY, "dubbo");
+            monitor = new MonitorConfig();
+            if (monitorAddress != null && monitorAddress.length() > 0) {
+                monitor.setAddress(monitorAddress);
+            }
+            if (monitorProtocol != null && monitorProtocol.length() > 0) {
+                monitor.setProtocol(monitorProtocol);
+            }
         }
-      }
-      return UrlUtils.parseURL(address, map);
-    } else if (Constants.REGISTRY_PROTOCOL.equals(monitor.getProtocol()) && registryURL != null) {
-      return registryURL.setProtocol("dubbo").addParameter(Constants.PROTOCOL_KEY, "registry")
-          .addParameterAndEncoded(Constants.REFER_KEY, StringUtils.toQueryString(map));
+        appendProperties(monitor);
+        Map<String, String> map = new HashMap<String, String>();
+        map.put(Constants.INTERFACE_KEY, MonitorService.class.getName());
+        map.put("dubbo", Version.getProtocolVersion());
+        map.put(Constants.TIMESTAMP_KEY, String.valueOf(System.currentTimeMillis()));
+        if (ConfigUtils.getPid() > 0) {
+            map.put(Constants.PID_KEY, String.valueOf(ConfigUtils.getPid()));
+        }
+        //set ip
+        String hostToRegistry = ConfigUtils.getSystemProperty(Constants.DUBBO_IP_TO_REGISTRY);
+        if (hostToRegistry == null || hostToRegistry.length() == 0) {
+            hostToRegistry = NetUtils.getLocalHost();
+        } else if (NetUtils.isInvalidLocalHost(hostToRegistry)) {
+            throw new IllegalArgumentException("Specified invalid registry ip from property:" + Constants.DUBBO_IP_TO_REGISTRY + ", value:" + hostToRegistry);
+        }
+        map.put(Constants.REGISTER_IP_KEY, hostToRegistry);
+        appendParameters(map, monitor);
+        appendParameters(map, application);
+        String address = monitor.getAddress();
+        String sysaddress = System.getProperty("dubbo.monitor.address");
+        if (sysaddress != null && sysaddress.length() > 0) {
+            address = sysaddress;
+        }
+        if (ConfigUtils.isNotEmpty(address)) {
+            if (!map.containsKey(Constants.PROTOCOL_KEY)) {
+                if (ExtensionLoader.getExtensionLoader(MonitorFactory.class).hasExtension("logstat")) {
+                    map.put(Constants.PROTOCOL_KEY, "logstat");
+                } else {
+                    map.put(Constants.PROTOCOL_KEY, "dubbo");
+                }
+            }
+            return UrlUtils.parseURL(address, map);
+        } else if (Constants.REGISTRY_PROTOCOL.equals(monitor.getProtocol()) && registryURL != null) {
+            return registryURL.setProtocol("dubbo").addParameter(Constants.PROTOCOL_KEY, "registry").addParameterAndEncoded(Constants.REFER_KEY, StringUtils.toQueryString(map));
+        }
+        return null;
     }
-    return null;
-  }
 
   protected void checkInterfaceAndMethods(Class<?> interfaceClass, List<MethodConfig> methods) {
     // interface cannot be null

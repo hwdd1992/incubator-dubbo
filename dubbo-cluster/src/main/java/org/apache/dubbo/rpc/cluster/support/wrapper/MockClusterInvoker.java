@@ -71,39 +71,34 @@ public class MockClusterInvoker<T> implements Invoker<T> {
   public Result invoke(Invocation invocation) throws RpcException {
     Result result = null;
 
-    String value = directory.getUrl()
-        .getMethodParameter(invocation.getMethodName(), Constants.MOCK_KEY,
-            Boolean.FALSE.toString()).trim();
-    if (value.length() == 0 || value.equalsIgnoreCase("false")) {
-      //no mock
-      result = this.invoker.invoke(invocation);
-    } else if (value.startsWith("force")) {
-      if (logger.isWarnEnabled()) {
-        logger.info(
-            "force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + directory
-                .getUrl());
-      }
-      //force:direct mock
-      result = doMockInvoke(invocation, null);
-    } else {
-      //fail-mock
-      try {
-        //1.进入集群
-        result = this.invoker.invoke(invocation);
-      } catch (RpcException e) {
-        if (e.isBiz()) {
-          throw e;
+        String value = directory.getUrl().getMethodParameter(invocation.getMethodName(), Constants.MOCK_KEY, Boolean.FALSE.toString()).trim();
+        if (value.length() == 0 || value.equalsIgnoreCase("false")) {
+            //no mock
+            result = this.invoker.invoke(invocation);
+        } else if (value.startsWith("force")) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + directory.getUrl());
+            }
+            //force:direct mock
+            result = doMockInvoke(invocation, null);
         } else {
-          if (logger.isWarnEnabled()) {
-            logger.warn("fail-mock: " + invocation.getMethodName() + " fail-mock enabled , url : "
-                + directory.getUrl(), e);
-          }
-          result = doMockInvoke(invocation, e);
+            //fail-mock
+            try {
+                //1.进入集群
+                result = this.invoker.invoke(invocation);
+            } catch (RpcException e) {
+                if (e.isBiz()) {
+                    throw e;
+                } else {
+                    if (logger.isWarnEnabled()) {
+                        logger.warn("fail-mock: " + invocation.getMethodName() + " fail-mock enabled , url : " + directory.getUrl(), e);
+                    }
+                    result = doMockInvoke(invocation, e);
+                }
+            }
         }
-      }
+        return result;
     }
-    return result;
-  }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
   private Result doMockInvoke(Invocation invocation, RpcException e) {

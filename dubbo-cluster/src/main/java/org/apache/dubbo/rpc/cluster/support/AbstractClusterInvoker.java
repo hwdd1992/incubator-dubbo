@@ -28,11 +28,18 @@ import org.apache.dubbo.common.logger.LoggerFactory;
 import org.apache.dubbo.common.utils.NetUtils;
 import org.apache.dubbo.rpc.Invocation;
 import org.apache.dubbo.rpc.Invoker;
+import org.apache.dubbo.rpc.RpcContext;
+import org.apache.dubbo.rpc.RpcInvocation;
 import org.apache.dubbo.rpc.Result;
 import org.apache.dubbo.rpc.RpcException;
 import org.apache.dubbo.rpc.cluster.Directory;
 import org.apache.dubbo.rpc.cluster.LoadBalance;
 import org.apache.dubbo.rpc.support.RpcUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * AbstractClusterInvoker
@@ -90,24 +97,25 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
     }
   }
 
-  /**
-   * Select a invoker using loadbalance policy.</br>
-   * a)Firstly, select an invoker using loadbalance. If this invoker is in previously selected list, or,
-   * if this invoker is unavailable, then continue step b (reselect), otherwise return the first selected invoker</br>
-   * b)Reslection, the validation rule for reselection: selected > available. This rule guarantees that
-   * the selected invoker has the minimum chance to be one in the previously selected list, and also
-   * guarantees this invoker is available.
-   *
-   * @param loadbalance load balance policy
-   * @param invokers invoker candidates
-   * @param selected exclude selected invokers or not
-   */
-  protected Invoker<T> select(LoadBalance loadbalance, Invocation invocation,
-      List<Invoker<T>> invokers, List<Invoker<T>> selected) throws RpcException {
-    if (invokers == null || invokers.isEmpty()) {
-      return null;
-    }
-    String methodName = invocation == null ? "" : invocation.getMethodName();
+    /**
+     * Select a invoker using loadbalance policy.</br>
+     * a)Firstly, select an invoker using loadbalance. If this invoker is in previously selected list, or,
+     * if this invoker is unavailable, then continue step b (reselect), otherwise return the first selected invoker</br>
+     * b)Reslection, the validation rule for reselection: selected > available. This rule guarantees that
+     * the selected invoker has the minimum chance to be one in the previously selected list, and also
+     * guarantees this invoker is available.
+     *
+     * @param loadbalance load balance policy
+     * @param invocation
+     * @param invokers invoker candidates
+     * @param selected  exclude selected invokers or not
+     * @return
+     * @throws RpcException
+     */
+    protected Invoker<T> select(LoadBalance loadbalance, Invocation invocation, List<Invoker<T>> invokers, List<Invoker<T>> selected) throws RpcException {
+        if (invokers == null || invokers.isEmpty())
+            return null;
+        String methodName = invocation == null ? "" : invocation.getMethodName();
 
     boolean sticky = invokers.get(0).getUrl()
         .getMethodParameter(methodName, Constants.CLUSTER_STICKY_KEY,
@@ -222,22 +230,25 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
     return null;
   }
 
-  @Override
-  public Result invoke(final Invocation invocation) throws RpcException {
-    checkWhetherDestroyed();
-    LoadBalance loadbalance = null;
-    //从this.methodInvokerMap里面查找一个Invoker
-    List<Invoker<T>> invokers = list(invocation);
-    if (invokers != null && !invokers.isEmpty()) {
-      loadbalance = ExtensionLoader
-          .getExtensionLoader(LoadBalance.class)
-          .getExtension(invokers.get(0).getUrl()
-              .getMethodParameter(RpcUtils.getMethodName(invocation), Constants.LOADBALANCE_KEY
-                  , Constants.DEFAULT_LOADBALANCE));
+    @Override
+    public Result invoke(final Invocation invocation) throws RpcException {
+        checkWhetherDestroyed();
+        LoadBalance loadbalance = null;
+
+        // binding attachments into invocation.
+        Map<String, String> contextAttachments = RpcContext.getContext().getAttachments();
+        if (contextAttachments != null && contextAttachments.size() != 0) {
+            ((RpcInvocation) invocation).addAttachments(contextAttachments);
+        }
+        //从this.methodInvokerMap里面查找一个Invoker
+        List<Invoker<T>> invokers = list(invocation);
+        if (invokers != null && !invokers.isEmpty()) {
+            loadbalance = ExtensionLoader.getExtensionLoader(LoadBalance.class).getExtension(invokers.get(0).getUrl()
+                    .getMethodParameter(RpcUtils.getMethodName(invocation), Constants.LOADBALANCE_KEY, Constants.DEFAULT_LOADBALANCE));
+        }
+        RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
+        return doInvoke(invocation, invokers, loadbalance);
     }
-    RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
-    return doInvoke(invocation, invokers, loadbalance);
-  }
 
   protected void checkWhetherDestroyed() {
 

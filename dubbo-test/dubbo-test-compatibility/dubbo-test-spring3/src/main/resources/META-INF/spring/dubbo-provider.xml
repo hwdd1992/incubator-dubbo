@@ -24,7 +24,8 @@
     <dubbo:application name="dubbo-annotation-provider"/>
 
     <!-- registry center config -->
-    <dubbo:registry id="my-registry" address="N/A"/>
+    <!--<dubbo:registry id="my-registry" address="N/A"/>-->
+    <dubbo:registry id="my-registry" address="127.0.0.1:2181" protocol="zookeeper"/>
 
     <!-- protocol config -->
     <dubbo:protocol name="dubbo" port="12345"/>

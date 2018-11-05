@@ -27,14 +27,18 @@ public class Consumer {
      * before running your application.
      */
     public static void main(String[] args) {
-        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(new String[]{"META-INF/spring/dubbo-demo-consumer.xml"});
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(new String[]{"META-INF/spring"
+                + "/dubbo-demo-consumer.xml"});
         context.start();
-        DemoService demoService = (DemoService) context.getBean("demoService"); // get remote service proxy
+        // get remote service proxy
+        DemoService demoService = (DemoService) context.getBean("demoService");
         while (true) {
             try {
                 Thread.sleep(1000);
-                String hello = demoService.sayHello("world"); // call remote method
-                System.out.println(hello); // get result
+                // call remote method
+                String hello = demoService.sayHello("world");
+                // get result
+                System.out.println(hello);
             } catch (Throwable throwable) {
                 throwable.printStackTrace();
             }

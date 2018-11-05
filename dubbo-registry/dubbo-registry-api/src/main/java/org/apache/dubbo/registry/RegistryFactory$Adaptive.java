@@ -21,7 +21,8 @@ public class RegistryFactory$Adaptive implements org.apache.dubbo.registry.Regis
           "Fail to get extension(org.apache.dubbo.registry.RegistryFactory) name from url(" + url
               .toString() + ") use keys([protocol])");
     }
-    org.apache.dubbo.registry.RegistryFactory extension = (org.apache.dubbo.registry.RegistryFactory) ExtensionLoader
+    org.apache.dubbo.registry.RegistryFactory extension =
+        (org.apache.dubbo.registry.RegistryFactory) ExtensionLoader
         .getExtensionLoader(org.apache.dubbo.registry.RegistryFactory.class).getExtension(extName);
     return extension.getRegistry(arg0);
   }

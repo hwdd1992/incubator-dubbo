@@ -16,6 +16,11 @@
  */
 package org.apache.dubbo.registry.support;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.logger.Logger;
@@ -24,12 +29,6 @@ import org.apache.dubbo.registry.Registry;
 import org.apache.dubbo.registry.RegistryFactory;
 import org.apache.dubbo.registry.RegistryService;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
-
 /**
  * AbstractRegistryFactory. (SPI, Singleton, ThreadSafe)
  *
@@ -37,74 +36,81 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public abstract class AbstractRegistryFactory implements RegistryFactory {
 
-    // Log output
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRegistryFactory.class);
+  // Log output
+  private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRegistryFactory.class);
 
-    // The lock for the acquisition process of the registry
-    private static final ReentrantLock LOCK = new ReentrantLock();
+  // The lock for the acquisition process of the registry
+  private static final ReentrantLock LOCK = new ReentrantLock();
 
-    // Registry Collection Map<RegistryAddress, Registry>
-    private static final Map<String, Registry> REGISTRIES = new ConcurrentHashMap<String, Registry>();
+  // Registry Collection Map<RegistryAddress, Registry>
+  private static final Map<String, Registry> REGISTRIES = new ConcurrentHashMap<String, Registry>();
 
-    /**
-     * Get all registries
-     *
-     * @return all registries
-     */
-    public static Collection<Registry> getRegistries() {
-        return Collections.unmodifiableCollection(REGISTRIES.values());
+  /**
+   * Get all registries
+   *
+   * @return all registries
+   */
+  public static Collection<Registry> getRegistries() {
+    return Collections.unmodifiableCollection(REGISTRIES.values());
+  }
+
+  /**
+   * Close all created registries
+   */
+  // TODO: 2017/8/30 to move somewhere else better
+  public static void destroyAll() {
+    if (LOGGER.isInfoEnabled()) {
+      LOGGER.info("Close all registries " + getRegistries());
     }
-
-    /**
-     * Close all created registries
-     */
-    // TODO: 2017/8/30 to move somewhere else better
-    public static void destroyAll() {
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info("Close all registries " + getRegistries());
-        }
-        // Lock up the registry shutdown process
-        LOCK.lock();
+    // Lock up the registry shutdown process
+    LOCK.lock();
+    try {
+      for (Registry registry : getRegistries()) {
         try {
-            for (Registry registry : getRegistries()) {
-                try {
-                    registry.destroy();
-                } catch (Throwable e) {
-                    LOGGER.error(e.getMessage(), e);
-                }
-            }
-            REGISTRIES.clear();
-        } finally {
-            // Release the lock
-            LOCK.unlock();
+          registry.destroy();
+        } catch (Throwable e) {
+          LOGGER.error(e.getMessage(), e);
         }
+      }
+      REGISTRIES.clear();
+    } finally {
+      // Release the lock
+      LOCK.unlock();
     }
+  }
 
-    @Override
-    public Registry getRegistry(URL url) {
-        url = url.setPath(RegistryService.class.getName())
-                .addParameter(Constants.INTERFACE_KEY, RegistryService.class.getName())
-                .removeParameters(Constants.EXPORT_KEY, Constants.REFER_KEY);
-        String key = url.toServiceString();
-        // Lock the registry access process to ensure a single instance of the registry
-        LOCK.lock();
-        try {
-            Registry registry = REGISTRIES.get(key);
-            if (registry != null) {
-                return registry;
-            }
-            registry = createRegistry(url);
-            if (registry == null) {
-                throw new IllegalStateException("Can not create registry " + url);
-            }
-            REGISTRIES.put(key, registry);
-            return registry;
-        } finally {
-            // Release the lock
-            LOCK.unlock();
-        }
+  /**
+   * 创建一个注册中心,存储在 {@code REGISTRIES}  变量中
+   *
+   * @param url Registry address, is not allowed to be empty
+   */
+  @Override
+  public Registry getRegistry(URL url) {
+    url = url.setPath(RegistryService.class.getName())
+        .addParameter(Constants.INTERFACE_KEY, RegistryService.class.getName())
+        .removeParameters(Constants.EXPORT_KEY, Constants.REFER_KEY);
+    String key = url.toServiceString();
+    // Lock the registry access process to ensure a single instance of the registry
+    //锁定注册中心获取过程,保证注册中心单一实例
+    LOCK.lock();
+    try {
+      Registry registry = REGISTRIES.get(key);
+      if (registry != null) {
+        return registry;
+      }
+      //new ZookeeperRegistry
+      registry = createRegistry(url);
+      if (registry == null) {
+        throw new IllegalStateException("Can not create registry " + url);
+      }
+      REGISTRIES.put(key, registry);
+      return registry;
+    } finally {
+      // Release the lock
+      LOCK.unlock();
     }
+  }
 
-    protected abstract Registry createRegistry(URL url);
+  protected abstract Registry createRegistry(URL url);
 
 }

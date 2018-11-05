@@ -16,8 +16,6 @@
  */
 package org.apache.dubbo.rpc.cluster.router;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.rpc.Invocation;
@@ -25,74 +23,78 @@ import org.apache.dubbo.rpc.Invoker;
 import org.apache.dubbo.rpc.RpcException;
 import org.apache.dubbo.rpc.cluster.Router;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * A specific Router designed to realize mock feature.
  * If a request is configured to use mock, then this router guarantees that only the invokers with protocol MOCK appear in final the invoker list, all other invokers will be excluded.
+ *
  */
 public class MockInvokersSelector implements Router {
 
-  @Override
-  public <T> List<Invoker<T>> route(final List<Invoker<T>> invokers,
-      URL url, final Invocation invocation) throws RpcException {
-    if (invocation.getAttachments() == null) {
-      return getNormalInvokers(invokers);
-    } else {
-      String value = invocation.getAttachments().get(Constants.INVOCATION_NEED_MOCK);
-      if (value == null) {
-        return getNormalInvokers(invokers);
-      } else if (Boolean.TRUE.toString().equalsIgnoreCase(value)) {
-        return getMockedInvokers(invokers);
-      }
-    }
-    return invokers;
-  }
-
-  private <T> List<Invoker<T>> getMockedInvokers(final List<Invoker<T>> invokers) {
-    if (!hasMockProviders(invokers)) {
-      return null;
-    }
-    List<Invoker<T>> sInvokers = new ArrayList<Invoker<T>>(1);
-    for (Invoker<T> invoker : invokers) {
-      if (invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) {
-        sInvokers.add(invoker);
-      }
-    }
-    return sInvokers;
-  }
-
-  private <T> List<Invoker<T>> getNormalInvokers(final List<Invoker<T>> invokers) {
-    if (!hasMockProviders(invokers)) {
-      return invokers;
-    } else {
-      List<Invoker<T>> sInvokers = new ArrayList<Invoker<T>>(invokers.size());
-      for (Invoker<T> invoker : invokers) {
-        if (!invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) {
-          sInvokers.add(invoker);
+    @Override
+    public <T> List<Invoker<T>> route(final List<Invoker<T>> invokers,
+                                      URL url, final Invocation invocation) throws RpcException {
+        if (invocation.getAttachments() == null) {
+            return getNormalInvokers(invokers);
+        } else {
+            String value = invocation.getAttachments().get(Constants.INVOCATION_NEED_MOCK);
+            if (value == null) {
+                return getNormalInvokers(invokers);
+            } else if (Boolean.TRUE.toString().equalsIgnoreCase(value)) {
+                return getMockedInvokers(invokers);
+            }
         }
-      }
-      return sInvokers;
+        return invokers;
     }
-  }
 
-  private <T> boolean hasMockProviders(final List<Invoker<T>> invokers) {
-    boolean hasMockProvider = false;
-    for (Invoker<T> invoker : invokers) {
-      if (invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) {
-        hasMockProvider = true;
-        break;
-      }
+    private <T> List<Invoker<T>> getMockedInvokers(final List<Invoker<T>> invokers) {
+        if (!hasMockProviders(invokers)) {
+            return null;
+        }
+        List<Invoker<T>> sInvokers = new ArrayList<Invoker<T>>(1);
+        for (Invoker<T> invoker : invokers) {
+            if (invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) {
+                sInvokers.add(invoker);
+            }
+        }
+        return sInvokers;
     }
-    return hasMockProvider;
-  }
 
-  @Override
-  public URL getUrl() {
-    return null;
-  }
+    private <T> List<Invoker<T>> getNormalInvokers(final List<Invoker<T>> invokers) {
+        if (!hasMockProviders(invokers)) {
+            return invokers;
+        } else {
+            List<Invoker<T>> sInvokers = new ArrayList<Invoker<T>>(invokers.size());
+            for (Invoker<T> invoker : invokers) {
+                if (!invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) {
+                    sInvokers.add(invoker);
+                }
+            }
+            return sInvokers;
+        }
+    }
 
-  @Override
-  public int compareTo(Router o) {
-    return 1;
-  }
+    private <T> boolean hasMockProviders(final List<Invoker<T>> invokers) {
+        boolean hasMockProvider = false;
+        for (Invoker<T> invoker : invokers) {
+            if (invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) {
+                hasMockProvider = true;
+                break;
+            }
+        }
+        return hasMockProvider;
+    }
+
+    @Override
+    public URL getUrl() {
+        return null;
+    }
+
+    @Override
+    public int compareTo(Router o) {
+        return 1;
+    }
 
 }

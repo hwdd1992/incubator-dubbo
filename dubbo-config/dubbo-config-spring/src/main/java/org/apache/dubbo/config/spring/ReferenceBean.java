@@ -16,12 +16,7 @@
  */
 package org.apache.dubbo.config.spring;
 
-import org.apache.dubbo.config.ApplicationConfig;
-import org.apache.dubbo.config.ConsumerConfig;
-import org.apache.dubbo.config.ModuleConfig;
-import org.apache.dubbo.config.MonitorConfig;
-import org.apache.dubbo.config.ReferenceConfig;
-import org.apache.dubbo.config.RegistryConfig;
+import org.apache.dubbo.config.*;
 import org.apache.dubbo.config.annotation.Reference;
 import org.apache.dubbo.config.spring.extension.SpringExtensionFactory;
 import org.apache.dubbo.config.support.Parameter;
@@ -39,7 +34,8 @@ import java.util.Map;
 /**
  * ReferenceFactoryBean
  */
-public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean, ApplicationContextAware, InitializingBean, DisposableBean {
+public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean, ApplicationContextAware,
+        InitializingBean, DisposableBean {
 
     private static final long serialVersionUID = 213195494150089726L;
 
@@ -79,7 +75,9 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
     @SuppressWarnings({"unchecked"})
     public void afterPropertiesSet() throws Exception {
         if (getConsumer() == null) {
-            Map<String, ConsumerConfig> consumerConfigMap = applicationContext == null ? null : BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, ConsumerConfig.class, false, false);
+            Map<String, ConsumerConfig> consumerConfigMap = applicationContext == null ? null :
+                    BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, ConsumerConfig.class, false,
+                            false);
             if (consumerConfigMap != null && consumerConfigMap.size() > 0) {
                 ConsumerConfig consumerConfig = null;
                 for (ConsumerConfig config : consumerConfigMap.values()) {
@@ -97,13 +95,16 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
         }
         if (getApplication() == null
                 && (getConsumer() == null || getConsumer().getApplication() == null)) {
-            Map<String, ApplicationConfig> applicationConfigMap = applicationContext == null ? null : BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, ApplicationConfig.class, false, false);
+            Map<String, ApplicationConfig> applicationConfigMap = applicationContext == null ? null :
+                    BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, ApplicationConfig.class, false
+                            , false);
             if (applicationConfigMap != null && applicationConfigMap.size() > 0) {
                 ApplicationConfig applicationConfig = null;
                 for (ApplicationConfig config : applicationConfigMap.values()) {
                     if (config.isDefault() == null || config.isDefault()) {
                         if (applicationConfig != null) {
-                            throw new IllegalStateException("Duplicate application configs: " + applicationConfig + " and " + config);
+                            throw new IllegalStateException("Duplicate application configs: " + applicationConfig +
+                                    " and " + config);
                         }
                         applicationConfig = config;
                     }
@@ -115,7 +116,9 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
         }
         if (getModule() == null
                 && (getConsumer() == null || getConsumer().getModule() == null)) {
-            Map<String, ModuleConfig> moduleConfigMap = applicationContext == null ? null : BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, ModuleConfig.class, false, false);
+            Map<String, ModuleConfig> moduleConfigMap = applicationContext == null ? null :
+                    BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, ModuleConfig.class, false,
+                            false);
             if (moduleConfigMap != null && moduleConfigMap.size() > 0) {
                 ModuleConfig moduleConfig = null;
                 for (ModuleConfig config : moduleConfigMap.values()) {
@@ -134,7 +137,9 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
         if ((getRegistries() == null || getRegistries().isEmpty())
                 && (getConsumer() == null || getConsumer().getRegistries() == null || getConsumer().getRegistries().isEmpty())
                 && (getApplication() == null || getApplication().getRegistries() == null || getApplication().getRegistries().isEmpty())) {
-            Map<String, RegistryConfig> registryConfigMap = applicationContext == null ? null : BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, RegistryConfig.class, false, false);
+            Map<String, RegistryConfig> registryConfigMap = applicationContext == null ? null :
+                    BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, RegistryConfig.class, false,
+                            false);
             if (registryConfigMap != null && registryConfigMap.size() > 0) {
                 List<RegistryConfig> registryConfigs = new ArrayList<>();
                 for (RegistryConfig config : registryConfigMap.values()) {
@@ -150,7 +155,9 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
         if (getMonitor() == null
                 && (getConsumer() == null || getConsumer().getMonitor() == null)
                 && (getApplication() == null || getApplication().getMonitor() == null)) {
-            Map<String, MonitorConfig> monitorConfigMap = applicationContext == null ? null : BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, MonitorConfig.class, false, false);
+            Map<String, MonitorConfig> monitorConfigMap = applicationContext == null ? null :
+                    BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, MonitorConfig.class, false,
+                            false);
             if (monitorConfigMap != null && monitorConfigMap.size() > 0) {
                 MonitorConfig monitorConfig = null;
                 for (MonitorConfig config : monitorConfigMap.values()) {

@@ -63,9 +63,22 @@ public abstract class AbstractMethodConfig extends AbstractConfig {
   // customized parameters
   protected Map<String, String> parameters;
 
-  public Integer getTimeout() {
-    return timeout;
-  }
+    /**
+     * forks for forking cluster
+     */
+    protected Integer forks;
+
+    public Integer getForks() {
+        return forks;
+    }
+
+    public void setForks(Integer forks) {
+        this.forks = forks;
+    }
+
+    public Integer getTimeout() {
+        return timeout;
+    }
 
   public void setTimeout(Integer timeout) {
     this.timeout = timeout;
@@ -125,14 +138,20 @@ public abstract class AbstractMethodConfig extends AbstractConfig {
     }
   }
 
-  public void setMock(String mock) {
-    if (mock != null && mock.startsWith(Constants.RETURN_PREFIX)) {
-      checkLength("mock", mock);
-    } else {
-      checkName("mock", mock);
+    public void setMock(String mock) {
+        if (mock == null) {
+            return;
+        }
+
+        if (mock.startsWith(Constants.RETURN_PREFIX) || mock.startsWith(Constants.THROW_PREFIX + " ")) {
+            checkLength("mock", mock);
+        } else if (mock.startsWith(Constants.FAIL_PREFIX) || mock.startsWith(Constants.FORCE_PREFIX)) {
+            checkNameHasSymbol("mock", mock);
+        } else {
+            checkName("mock", mock);
+        }
+        this.mock = mock;
     }
-    this.mock = mock;
-  }
 
   public String getMerger() {
     return merger;

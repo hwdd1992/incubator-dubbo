@@ -20,6 +20,7 @@ import org.apache.dubbo.common.Version;
 import org.apache.dubbo.config.*;
 import org.apache.dubbo.config.spring.ReferenceBean;
 import org.apache.dubbo.config.spring.ServiceBean;
+
 import org.springframework.beans.factory.xml.NamespaceHandlerSupport;
 
 /**

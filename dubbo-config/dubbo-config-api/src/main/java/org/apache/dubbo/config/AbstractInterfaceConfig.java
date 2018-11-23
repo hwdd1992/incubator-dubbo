@@ -20,11 +20,7 @@ import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.Version;
 import org.apache.dubbo.common.extension.ExtensionLoader;
-import org.apache.dubbo.common.utils.ConfigUtils;
-import org.apache.dubbo.common.utils.NetUtils;
-import org.apache.dubbo.common.utils.ReflectUtils;
-import org.apache.dubbo.common.utils.StringUtils;
-import org.apache.dubbo.common.utils.UrlUtils;
+import org.apache.dubbo.common.utils.*;
 import org.apache.dubbo.config.support.Parameter;
 import org.apache.dubbo.monitor.MonitorFactory;
 import org.apache.dubbo.monitor.MonitorService;
@@ -123,7 +119,8 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
                     + NetUtils.getLocalHost()
                     + " use dubbo version "
                     + Version.getVersion()
-                    + ", Please add <dubbo:registry address=\"...\" /> to your spring config. If you want unregister, please set <dubbo:service registry=\"N/A\" />");
+                    + ", Please add <dubbo:registry address=\"...\" /> to your spring config. If you want unregister,"
+                    + " please set <dubbo:service registry=\"N/A\" />");
         }
         for (RegistryConfig registryConfig : registries) {
             appendProperties(registryConfig);
@@ -269,7 +266,9 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
             for (MethodConfig methodBean : methods) {
                 String methodName = methodBean.getName();
                 if (methodName == null || methodName.length() == 0) {
-                    throw new IllegalStateException("<dubbo:method> name attribute is required! Please check: <dubbo:service interface=\"" + interfaceClass.getName() + "\" ... ><dubbo:method name=\"\" ... /></<dubbo:reference>");
+                    throw new IllegalStateException("<dubbo:method> name attribute is required! Please check: "
+                            + "<dubbo:service interface=\"" + interfaceClass.getName() + "\" ... ><dubbo:method "
+                            + "name=\"\" ... /></<dubbo:reference>");
                 }
                 boolean hasMethod = false;
                 for (java.lang.reflect.Method method : interfaceClass.getMethods()) {
@@ -317,26 +316,27 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
 
     void checkStub(Class<?> interfaceClass) {
         if (ConfigUtils.isNotEmpty(local)) {
-            Class<?> localClass = ConfigUtils.isDefault(local) ? ReflectUtils.forName(interfaceClass.getName() + "Local") : ReflectUtils.forName(local);
-            if (!interfaceClass.isAssignableFrom(localClass)) {
-                throw new IllegalStateException("The local implementation class " + localClass.getName() + " not implement interface " + interfaceClass.getName());
-            }
-            try {
-                ReflectUtils.findConstructor(localClass, interfaceClass);
-            } catch (NoSuchMethodException e) {
-                throw new IllegalStateException("No such constructor \"public " + localClass.getSimpleName() + "(" + interfaceClass.getName() + ")\" in local implementation class " + localClass.getName());
-            }
+            Class<?> localClass = ConfigUtils.isDefault(local) ?
+                    ReflectUtils.forName(interfaceClass.getName() + "Local") : ReflectUtils.forName(local);
+            checkInterfaceClassAndLocalClass(interfaceClass, localClass);
         }
         if (ConfigUtils.isNotEmpty(stub)) {
-            Class<?> localClass = ConfigUtils.isDefault(stub) ? ReflectUtils.forName(interfaceClass.getName() + "Stub") : ReflectUtils.forName(stub);
-            if (!interfaceClass.isAssignableFrom(localClass)) {
-                throw new IllegalStateException("The local implementation class " + localClass.getName() + " not implement interface " + interfaceClass.getName());
-            }
-            try {
-                ReflectUtils.findConstructor(localClass, interfaceClass);
-            } catch (NoSuchMethodException e) {
-                throw new IllegalStateException("No such constructor \"public " + localClass.getSimpleName() + "(" + interfaceClass.getName() + ")\" in local implementation class " + localClass.getName());
-            }
+            Class<?> localClass = ConfigUtils.isDefault(stub) ?
+                    ReflectUtils.forName(interfaceClass.getName() + "Stub") : ReflectUtils.forName(stub);
+            checkInterfaceClassAndLocalClass(interfaceClass, localClass);
+        }
+    }
+
+    private void checkInterfaceClassAndLocalClass(Class<?> interfaceClass, Class<?> localClass) {
+        if (!interfaceClass.isAssignableFrom(localClass)) {
+            throw new IllegalStateException("The local implementation class " + localClass.getName() + " not "
+                    + "implement interface " + interfaceClass.getName());
+        }
+        try {
+            ReflectUtils.findConstructor(localClass, interfaceClass);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException("No such constructor \"public " + localClass.getSimpleName()
+                    + "(" + interfaceClass.getName() + ")\" in local implementation class " + localClass.getName());
         }
     }
 

@@ -24,12 +24,15 @@
     <!-- consumer's application name, used for tracing dependency relationship (not a matching criterion),
     don't set it same as provider -->
     <dubbo:application name="demo-consumer"/>
+    <dubbo:consumer check="false" group="impl"/>
 
     <!-- use multicast registry center to discover service -->
-    <dubbo:registry address="multicast://224.5.6.7:1234"/>
+    <!--<dubbo:registry address="multicast://224.5.6.7:1234"/>-->
+    <dubbo:registry protocol="zookeeper" address="192.168.50.210:2181" file=".dubbo-registry-usercenter.cache"/>
 
     <!-- generate proxy for the remote service, then demoService can be used in the same way as the
     local regular interface -->
     <dubbo:reference id="demoService" check="false" interface="com.alibaba.dubbo.demo.DemoService"/>
+    <dubbo:reference id="hwddService" check="false" interface="com.alibaba.dubbo.demo.HwddTestService"/>
 
 </beans>

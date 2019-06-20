@@ -16,10 +16,17 @@
  */
 package org.apache.dubbo.config;
 
-import java.util.Map;
-import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.config.support.Parameter;
 import org.apache.dubbo.rpc.cluster.LoadBalance;
+
+import java.util.Map;
+
+import static org.apache.dubbo.rpc.cluster.Constants.LOADBALANCE_KEY;
+import static org.apache.dubbo.rpc.Constants.FAIL_PREFIX;
+import static org.apache.dubbo.rpc.Constants.FORCE_PREFIX;
+import static org.apache.dubbo.rpc.Constants.MOCK_KEY;
+import static org.apache.dubbo.rpc.Constants.RETURN_PREFIX;
+import static org.apache.dubbo.rpc.Constants.THROW_PREFIX;
 
 /**
  * AbstractMethodConfig
@@ -28,43 +35,71 @@ import org.apache.dubbo.rpc.cluster.LoadBalance;
  */
 public abstract class AbstractMethodConfig extends AbstractConfig {
 
-  private static final long serialVersionUID = 1L;
-
-  // timeout for remote invocation in milliseconds
-  protected Integer timeout;
-
-  // retry times
-  protected Integer retries;
-
-  // max concurrent invocations
-  protected Integer actives;
-
-  // load balance
-  protected String loadbalance;
-
-  // whether to async
-  protected Boolean async;
-
-  // whether to ack async-sent
-  protected Boolean sent;
-
-  // the name of mock class which gets called when a service fails to execute
-  protected String mock;
-
-  // merger
-  protected String merger;
-
-  // cache
-  protected String cache;
-
-  // validation
-  protected String validation;
-
-  // customized parameters
-  protected Map<String, String> parameters;
+    private static final long serialVersionUID = 1L;
 
     /**
-     * forks for forking cluster
+     * The timeout for remote invocation in milliseconds
+     */
+    protected Integer timeout;
+
+    /**
+     * The retry times
+     */
+    protected Integer retries;
+
+    /**
+     * max concurrent invocations
+     */
+    protected Integer actives;
+
+    /**
+     * The load balance
+     */
+    protected String loadbalance;
+
+    /**
+     * Whether to async
+     * note that: it is an unreliable asynchronism that ignores return values and does not block threads.
+     */
+    protected Boolean async;
+
+    /**
+     * Whether to ack async-sent
+     */
+    protected Boolean sent;
+
+    /**
+     * The name of mock class which gets called when a service fails to execute
+     *
+     * note that: the mock doesn't support on the provider side，and the mock is executed when a non-business exception
+     * occurs after a remote service call
+     */
+    protected String mock;
+
+    /**
+     * Merger
+     */
+    protected String merger;
+
+    /**
+     * Cache the return result with the call parameter as key, the following options are available: lru, threadlocal,
+     * jcache, etc.
+     */
+    protected String cache;
+
+    /**
+     * Whether JSR303 standard annotation validation is enabled or not, if enabled, annotations on method parameters will
+     * be validated
+     */
+    protected String validation;
+
+    /**
+     * The customized parameters
+     */
+    protected Map<String, String> parameters;
+
+    /**
+     * Forks for forking cluster
      */
     protected Integer forks;
 
@@ -80,110 +115,110 @@ public abstract class AbstractMethodConfig extends AbstractConfig {
         return timeout;
     }
 
-  public void setTimeout(Integer timeout) {
-    this.timeout = timeout;
-  }
-
-  public Integer getRetries() {
-    return retries;
-  }
-
-  public void setRetries(Integer retries) {
-    this.retries = retries;
-  }
-
-  public String getLoadbalance() {
-    return loadbalance;
-  }
-
-  public void setLoadbalance(String loadbalance) {
-    checkExtension(LoadBalance.class, "loadbalance", loadbalance);
-    this.loadbalance = loadbalance;
-  }
-
-  public Boolean isAsync() {
-    return async;
-  }
-
-  public void setAsync(Boolean async) {
-    this.async = async;
-  }
-
-  public Integer getActives() {
-    return actives;
-  }
-
-  public void setActives(Integer actives) {
-    this.actives = actives;
-  }
-
-  public Boolean getSent() {
-    return sent;
-  }
-
-  public void setSent(Boolean sent) {
-    this.sent = sent;
-  }
-
-  @Parameter(escaped = true)
-  public String getMock() {
-    return mock;
-  }
-
-  public void setMock(Boolean mock) {
-    if (mock == null) {
-      setMock((String) null);
-    } else {
-      setMock(String.valueOf(mock));
+    public void setTimeout(Integer timeout) {
+        this.timeout = timeout;
     }
-  }
+
+    public Integer getRetries() {
+        return retries;
+    }
+
+    public void setRetries(Integer retries) {
+        this.retries = retries;
+    }
+
+    public String getLoadbalance() {
+        return loadbalance;
+    }
+
+    public void setLoadbalance(String loadbalance) {
+        checkExtension(LoadBalance.class, LOADBALANCE_KEY, loadbalance);
+        this.loadbalance = loadbalance;
+    }
+
+    public Boolean isAsync() {
+        return async;
+    }
+
+    public void setAsync(Boolean async) {
+        this.async = async;
+    }
+
+    public Integer getActives() {
+        return actives;
+    }
+
+    public void setActives(Integer actives) {
+        this.actives = actives;
+    }
+
+    public Boolean getSent() {
+        return sent;
+    }
+
+    public void setSent(Boolean sent) {
+        this.sent = sent;
+    }
+
+    @Parameter(escaped = true)
+    public String getMock() {
+        return mock;
+    }
 
     public void setMock(String mock) {
         if (mock == null) {
             return;
         }
 
-        if (mock.startsWith(Constants.RETURN_PREFIX) || mock.startsWith(Constants.THROW_PREFIX + " ")) {
-            checkLength("mock", mock);
-        } else if (mock.startsWith(Constants.FAIL_PREFIX) || mock.startsWith(Constants.FORCE_PREFIX)) {
-            checkNameHasSymbol("mock", mock);
+        if (mock.startsWith(RETURN_PREFIX) || mock.startsWith(THROW_PREFIX + " ")) {
+            checkLength(MOCK_KEY, mock);
+        } else if (mock.startsWith(FAIL_PREFIX) || mock.startsWith(FORCE_PREFIX)) {
+            checkNameHasSymbol(MOCK_KEY, mock);
         } else {
-            checkName("mock", mock);
+            checkName(MOCK_KEY, mock);
         }
         this.mock = mock;
     }
 
-  public String getMerger() {
-    return merger;
-  }
+    public void setMock(Boolean mock) {
+        if (mock == null) {
+            setMock((String) null);
+        } else {
+            setMock(mock.toString());
+        }
+    }
 
-  public void setMerger(String merger) {
-    this.merger = merger;
-  }
+    public String getMerger() {
+        return merger;
+    }
 
-  public String getCache() {
-    return cache;
-  }
+    public void setMerger(String merger) {
+        this.merger = merger;
+    }
 
-  public void setCache(String cache) {
-    this.cache = cache;
-  }
+    public String getCache() {
+        return cache;
+    }
 
-  public String getValidation() {
-    return validation;
-  }
+    public void setCache(String cache) {
+        this.cache = cache;
+    }
 
-  public void setValidation(String validation) {
-    this.validation = validation;
-  }
+    public String getValidation() {
+        return validation;
+    }
 
-  public Map<String, String> getParameters() {
-    return parameters;
-  }
+    public void setValidation(String validation) {
+        this.validation = validation;
+    }
 
-  public void setParameters(Map<String, String> parameters) {
-    checkParameterName(parameters);
-    this.parameters = parameters;
-  }
+    public Map<String, String> getParameters() {
+        return parameters;
+    }
+
+    public void setParameters(Map<String, String> parameters) {
+        checkParameterName(parameters);
+        this.parameters = parameters;
+    }
 
 }

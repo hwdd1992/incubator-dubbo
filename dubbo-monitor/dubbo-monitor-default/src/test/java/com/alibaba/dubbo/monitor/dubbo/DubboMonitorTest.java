@@ -28,12 +28,24 @@ import com.alibaba.dubbo.rpc.Protocol;
 import com.alibaba.dubbo.rpc.ProxyFactory;
 import com.alibaba.dubbo.rpc.Result;
 import com.alibaba.dubbo.rpc.RpcException;
-
-import junit.framework.Assert;
+import org.hamcrest.CustomMatcher;
+import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.Arrays;
 import java.util.List;
+
+import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.Matchers.not;
+import static org.junit.Assert.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 /**
  * DubboMonitorTest
@@ -91,22 +103,23 @@ public class DubboMonitorTest {
                 .addParameter(MonitorService.CONCURRENT, 1)
                 .addParameter(MonitorService.MAX_CONCURRENT, 1);
         monitor.collect(statistics);
+        monitor.send();
         while (lastStatistics == null) {
             Thread.sleep(10);
         }
-        Assert.assertEquals(lastStatistics.getParameter(MonitorService.APPLICATION), "morgan");
-        Assert.assertEquals(lastStatistics.getProtocol(), "dubbo");
-        Assert.assertEquals(lastStatistics.getHost(), "10.20.153.10");
-        Assert.assertEquals(lastStatistics.getParameter(MonitorService.APPLICATION), "morgan");
-        Assert.assertEquals(lastStatistics.getParameter(MonitorService.INTERFACE), "MemberService");
-        Assert.assertEquals(lastStatistics.getParameter(MonitorService.METHOD), "findPerson");
-        Assert.assertEquals(lastStatistics.getParameter(MonitorService.CONSUMER), "10.20.153.11");
-        Assert.assertEquals(lastStatistics.getParameter(MonitorService.SUCCESS), "1");
-        Assert.assertEquals(lastStatistics.getParameter(MonitorService.FAILURE), "0");
-        Assert.assertEquals(lastStatistics.getParameter(MonitorService.ELAPSED), "3");
-        Assert.assertEquals(lastStatistics.getParameter(MonitorService.MAX_ELAPSED), "3");
-        Assert.assertEquals(lastStatistics.getParameter(MonitorService.CONCURRENT), "1");
-        Assert.assertEquals(lastStatistics.getParameter(MonitorService.MAX_CONCURRENT), "1");
+        Assert.assertEquals("morgan", lastStatistics.getParameter(MonitorService.APPLICATION));
+        Assert.assertEquals("dubbo", lastStatistics.getProtocol());
+        Assert.assertEquals("10.20.153.10", lastStatistics.getHost());
+        Assert.assertEquals("morgan", lastStatistics.getParameter(MonitorService.APPLICATION));
+        Assert.assertEquals("MemberService", lastStatistics.getParameter(MonitorService.INTERFACE));
+        Assert.assertEquals("findPerson", lastStatistics.getParameter(MonitorService.METHOD));
+        Assert.assertEquals("10.20.153.11", lastStatistics.getParameter(MonitorService.CONSUMER));
+        Assert.assertEquals("1", lastStatistics.getParameter(MonitorService.SUCCESS));
+        Assert.assertEquals("0", lastStatistics.getParameter(MonitorService.FAILURE));
+        Assert.assertEquals("3", lastStatistics.getParameter(MonitorService.ELAPSED));
+        Assert.assertEquals("3", lastStatistics.getParameter(MonitorService.MAX_ELAPSED));
+        Assert.assertEquals("1", lastStatistics.getParameter(MonitorService.CONCURRENT));
+        Assert.assertEquals("1", lastStatistics.getParameter(MonitorService.MAX_CONCURRENT));
         monitor.destroy();
     }
 
@@ -159,4 +172,71 @@ public class DubboMonitorTest {
         }
     }
 
+    @Test
+    public void testAvailable() {
+        Invoker invoker = mock(Invoker.class);
+        MonitorService monitorService = mock(MonitorService.class);
+
+        given(invoker.isAvailable()).willReturn(true);
+        given(invoker.getUrl()).willReturn(URL.valueOf("dubbo://127.0.0.1:7070?interval=20"));
+        DubboMonitor dubboMonitor = new DubboMonitor(invoker, monitorService);
+
+        assertThat(dubboMonitor.isAvailable(), is(true));
+        verify(invoker).isAvailable();
+    }
+
+    @Test
+    public void testSum() {
+        URL statistics = new URL("dubbo", "10.20.153.11", 0)
+                .addParameter(MonitorService.APPLICATION, "morgan")
+                .addParameter(MonitorService.INTERFACE, "MemberService")
+                .addParameter(MonitorService.METHOD, "findPerson")
+                .addParameter(MonitorService.CONSUMER, "10.20.153.11")
+                .addParameter(MonitorService.SUCCESS, 1)
+                .addParameter(MonitorService.FAILURE, 0)
+                .addParameter(MonitorService.ELAPSED, 3)
+                .addParameter(MonitorService.MAX_ELAPSED, 3)
+                .addParameter(MonitorService.CONCURRENT, 1)
+                .addParameter(MonitorService.MAX_CONCURRENT, 1);
+        Invoker invoker = mock(Invoker.class);
+        MonitorService monitorService = mock(MonitorService.class);
+
+        given(invoker.getUrl()).willReturn(URL.valueOf("dubbo://127.0.0.1:7070?interval=20"));
+        DubboMonitor dubboMonitor = new DubboMonitor(invoker, monitorService);
+
+        dubboMonitor.collect(statistics);
+        dubboMonitor.collect(statistics.addParameter(MonitorService.SUCCESS, 3).addParameter(MonitorService.CONCURRENT, 2)
+                .addParameter(MonitorService.INPUT, 1).addParameter(MonitorService.OUTPUT, 2));
+        dubboMonitor.collect(statistics.addParameter(MonitorService.SUCCESS, 6).addParameter(MonitorService.ELAPSED, 2));
+
+        dubboMonitor.send();
+
+        ArgumentCaptor<URL> summaryCaptor = ArgumentCaptor.forClass(URL.class);
+        verify(monitorService, atLeastOnce()).collect(summaryCaptor.capture());
+
+        List<URL> allValues = summaryCaptor.getAllValues();
+
+        assertThat(allValues, not(nullValue()));
+        assertThat(allValues, hasItem(new CustomMatcher<URL>("Monitor count should greater than 1") {
+            @Override
+            public boolean matches(Object item) {
+                URL url = (URL) item;
+                return Integer.valueOf(url.getParameter(MonitorService.SUCCESS)) > 1;
+            }
+        }));
+    }
+
+    @Test
+    public void testLookUp() {
+        Invoker invoker = mock(Invoker.class);
+        MonitorService monitorService = mock(MonitorService.class);
+
+        URL queryUrl = URL.valueOf("dubbo://127.0.0.1:7070?interval=20");
+        given(invoker.getUrl()).willReturn(queryUrl);
+        DubboMonitor dubboMonitor = new DubboMonitor(invoker, monitorService);
+
+        dubboMonitor.lookup(queryUrl);
+
+        verify(monitorService).lookup(eq(queryUrl));
+    }
 }

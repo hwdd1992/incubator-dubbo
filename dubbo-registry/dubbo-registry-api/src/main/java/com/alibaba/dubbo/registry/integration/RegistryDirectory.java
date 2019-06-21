@@ -78,6 +78,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     private volatile URL overrideDirectoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
 
+    private volatile URL registeredConsumerUrl;
+
     /**
      * override rules
      * Priority: override>-D>consumer>provider
@@ -164,6 +166,16 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         if (isDestroyed()) {
             return;
         }
+
+        // unregister.
+        try {
+            if (getRegisteredConsumerUrl() != null && registry != null && registry.isAvailable()) {
+                registry.unregister(getRegisteredConsumerUrl());
+            }
+        } catch (Throwable t) {
+            logger.warn("unexpected error when unregister service " + serviceKey + "from registry" + registry.getUrl(), t);
+        }
+
         // unsubscribe.
         try {
             if (getConsumerUrl() != null && registry != null && registry.isAvailable()) {
@@ -445,7 +457,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         List<Router> routers = getRouters();
         if (routers != null) {
             for (Router router : routers) {
-                if (router.getUrl() != null) {
+                // If router's url not null and is not route by runtime,we filter invokers here
+                if (router.getUrl() != null && !router.getUrl().getParameter(Constants.RUNTIME_KEY, false)) {
                     invokers = router.route(invokers, getConsumerUrl(), invocation);
                 }
             }
@@ -557,10 +570,10 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                         try {
                             invoker.destroy();
                             if (logger.isDebugEnabled()) {
-                                logger.debug("destory invoker[" + invoker.getUrl() + "] success. ");
+                                logger.debug("destroy invoker[" + invoker.getUrl() + "] success. ");
                             }
                         } catch (Exception e) {
-                            logger.warn("destory invoker[" + invoker.getUrl() + "] faild. " + e.getMessage(), e);
+                            logger.warn("destroy invoker[" + invoker.getUrl() + "] faild. " + e.getMessage(), e);
                         }
                     }
                 }
@@ -609,6 +622,14 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     @Override
     public URL getUrl() {
         return this.overrideDirectoryUrl;
+    }
+
+    public URL getRegisteredConsumerUrl() {
+        return registeredConsumerUrl;
+    }
+
+    public void setRegisteredConsumerUrl(URL registeredConsumerUrl) {
+        this.registeredConsumerUrl = registeredConsumerUrl;
     }
 
     @Override

@@ -23,6 +23,7 @@ import com.alibaba.dubbo.common.utils.NetUtils;
 import com.alibaba.dubbo.rpc.Invocation;
 import com.alibaba.dubbo.rpc.Invoker;
 import com.alibaba.dubbo.rpc.Result;
+import com.alibaba.dubbo.rpc.RpcContext;
 import com.alibaba.dubbo.rpc.RpcException;
 import com.alibaba.dubbo.rpc.RpcInvocation;
 import com.alibaba.dubbo.rpc.cluster.Directory;
@@ -34,16 +35,19 @@ import com.alibaba.dubbo.rpc.cluster.loadbalance.RandomLoadBalance;
 import com.alibaba.dubbo.rpc.cluster.loadbalance.RoundRobinLoadBalance;
 
 import junit.framework.Assert;
-import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 /**
  * AbstractClusterInvokerTest
@@ -76,40 +80,38 @@ public class AbstractClusterInvokerTest {
     public void setUp() throws Exception {
         invocation.setMethodName("sayHello");
 
-        invoker1 = EasyMock.createMock(Invoker.class);
-        invoker2 = EasyMock.createMock(Invoker.class);
-        invoker3 = EasyMock.createMock(Invoker.class);
-        invoker4 = EasyMock.createMock(Invoker.class);
-        invoker5 = EasyMock.createMock(Invoker.class);
-        mockedInvoker1 = EasyMock.createMock(Invoker.class);
+        invoker1 = mock(Invoker.class);
+        invoker2 = mock(Invoker.class);
+        invoker3 = mock(Invoker.class);
+        invoker4 = mock(Invoker.class);
+        invoker5 = mock(Invoker.class);
+        mockedInvoker1 = mock(Invoker.class);
 
         URL turl = URL.valueOf("test://test:11/test");
 
-        EasyMock.expect(invoker1.isAvailable()).andReturn(false).anyTimes();
-        EasyMock.expect(invoker1.getInterface()).andReturn(IHelloService.class).anyTimes();
-        EasyMock.expect(invoker1.getUrl()).andReturn(turl.addParameter("name", "invoker1")).anyTimes();
+        given(invoker1.isAvailable()).willReturn(false);
+        given(invoker1.getInterface()).willReturn(IHelloService.class);
+        given(invoker1.getUrl()).willReturn(turl.setPort(1).addParameter("name", "invoker1"));
 
-        EasyMock.expect(invoker2.isAvailable()).andReturn(true).anyTimes();
-        EasyMock.expect(invoker2.getInterface()).andReturn(IHelloService.class).anyTimes();
-        EasyMock.expect(invoker2.getUrl()).andReturn(turl.addParameter("name", "invoker2")).anyTimes();
+        given(invoker2.isAvailable()).willReturn(true);
+        given(invoker2.getInterface()).willReturn(IHelloService.class);
+        given(invoker2.getUrl()).willReturn(turl.setPort(2).addParameter("name", "invoker2"));
 
-        EasyMock.expect(invoker3.isAvailable()).andReturn(false).anyTimes();
-        EasyMock.expect(invoker3.getInterface()).andReturn(IHelloService.class).anyTimes();
-        EasyMock.expect(invoker3.getUrl()).andReturn(turl.addParameter("name", "invoker3")).anyTimes();
+        given(invoker3.isAvailable()).willReturn(false);
+        given(invoker3.getInterface()).willReturn(IHelloService.class);
+        given(invoker3.getUrl()).willReturn(turl.setPort(3).addParameter("name", "invoker3"));
 
-        EasyMock.expect(invoker4.isAvailable()).andReturn(true).anyTimes();
-        EasyMock.expect(invoker4.getInterface()).andReturn(IHelloService.class).anyTimes();
-        EasyMock.expect(invoker4.getUrl()).andReturn(turl.addParameter("name", "invoker4")).anyTimes();
+        given(invoker4.isAvailable()).willReturn(true);
+        given(invoker4.getInterface()).willReturn(IHelloService.class);
+        given(invoker4.getUrl()).willReturn(turl.setPort(4).addParameter("name", "invoker4"));
 
-        EasyMock.expect(invoker5.isAvailable()).andReturn(false).anyTimes();
-        EasyMock.expect(invoker5.getInterface()).andReturn(IHelloService.class).anyTimes();
-        EasyMock.expect(invoker5.getUrl()).andReturn(turl.addParameter("name", "invoker5")).anyTimes();
+        given(invoker5.isAvailable()).willReturn(false);
+        given(invoker5.getInterface()).willReturn(IHelloService.class);
+        given(invoker5.getUrl()).willReturn(turl.setPort(5).addParameter("name", "invoker5"));
 
-        EasyMock.expect(mockedInvoker1.isAvailable()).andReturn(false).anyTimes();
-        EasyMock.expect(mockedInvoker1.getInterface()).andReturn(IHelloService.class).anyTimes();
-        EasyMock.expect(mockedInvoker1.getUrl()).andReturn(turl.setProtocol("mock")).anyTimes();
-
-        EasyMock.replay(invoker1, invoker2, invoker3, invoker4, invoker5, mockedInvoker1);
+        given(mockedInvoker1.isAvailable()).willReturn(false);
+        given(mockedInvoker1.getInterface()).willReturn(IHelloService.class);
+        given(mockedInvoker1.getUrl()).willReturn(turl.setProtocol("mock"));
 
         invokers.add(invoker1);
         dic = new StaticDirectory<IHelloService>(url, invokers, null);
@@ -129,6 +131,31 @@ public class AbstractClusterInvokerTest {
             }
         };
 
+    }
+
+    @Test
+    public void testBindingAttachment() {
+        final String attachKey = "attach";
+        final String attachValue = "value";
+
+        // setup attachment
+        RpcContext.getContext().setAttachment(attachKey, attachValue);
+        Map<String, String> attachments = RpcContext.getContext().getAttachments();
+        Assert.assertTrue("set attachment failed!", attachments != null && attachments.size() == 1);
+
+        cluster = new AbstractClusterInvoker(dic) {
+            @Override
+            protected Result doInvoke(Invocation invocation, List invokers, LoadBalance loadbalance)
+                    throws RpcException {
+                // attachment will be bind to invocation
+                String value = invocation.getAttachment(attachKey);
+                Assert.assertTrue("binding attachment failed!", value != null && value.equals(attachValue));
+                return null;
+            }
+        };
+
+        // invoke
+        cluster.invoke(invocation);
     }
 
     @Test
@@ -156,19 +183,19 @@ public class AbstractClusterInvokerTest {
     @Test
     public void testSelect_Invokersize2AndselectNotNull() throws Exception {
         invokers.clear();
-        invokers.add(invoker1);
         invokers.add(invoker2);
+        invokers.add(invoker4);
         {
             selectedInvokers.clear();
-            selectedInvokers.add(invoker1);
-            Invoker invoker = cluster.select(null, null, invokers, selectedInvokers);
+            selectedInvokers.add(invoker4);
+            Invoker invoker = cluster.select(null, invocation, invokers, selectedInvokers);
             Assert.assertEquals(invoker2, invoker);
         }
         {
             selectedInvokers.clear();
             selectedInvokers.add(invoker2);
-            Invoker invoker = cluster.select(null, null, invokers, selectedInvokers);
-            Assert.assertEquals(invoker1, invoker);
+            Invoker invoker = cluster.select(null, invocation, invokers, selectedInvokers);
+            Assert.assertEquals(invoker4, invoker);
         }
     }
 
@@ -181,9 +208,9 @@ public class AbstractClusterInvokerTest {
 
     @Test
     public void testCloseAvailablecheck() {
-        LoadBalance lb = EasyMock.createMock(LoadBalance.class);
-        EasyMock.expect(lb.select(invokers, url, invocation)).andReturn(invoker1);
-        EasyMock.replay(lb);
+        LoadBalance lb = mock(LoadBalance.class);
+        given(lb.select(invokers, url, invocation)).willReturn(invoker1);
+
         initlistsize5();
 
         Invoker sinvoker = cluster_nocheck.select(lb, invocation, invokers, selectedInvokers);
@@ -322,18 +349,24 @@ public class AbstractClusterInvokerTest {
         for (int i = 0; i < runs; i++) {
             Invoker sinvoker = cluster.select(lb, invocation, invokers, selectedInvokers);
             Assert.assertEquals(true, sinvoker.isAvailable());
+
+            Mockito.clearInvocations(invoker1, invoker2, invoker3, invoker4, invoker5);
         }
         for (int i = 0; i < runs; i++) {
             selectedInvokers.clear();
             selectedInvokers.add(invoker1);
             Invoker sinvoker = cluster.select(lb, invocation, invokers, selectedInvokers);
             Assert.assertEquals(true, sinvoker.isAvailable());
+
+            Mockito.clearInvocations(invoker1, invoker2, invoker3, invoker4, invoker5);
         }
         for (int i = 0; i < runs; i++) {
             selectedInvokers.clear();
             selectedInvokers.add(invoker2);
             Invoker sinvoker = cluster.select(lb, invocation, invokers, selectedInvokers);
             Assert.assertEquals(true, sinvoker.isAvailable());
+
+            Mockito.clearInvocations(invoker1, invoker2, invoker3, invoker4, invoker5);
         }
         for (int i = 0; i < runs; i++) {
             selectedInvokers.clear();
@@ -341,6 +374,8 @@ public class AbstractClusterInvokerTest {
             selectedInvokers.add(invoker4);
             Invoker sinvoker = cluster.select(lb, invocation, invokers, selectedInvokers);
             Assert.assertEquals(true, sinvoker.isAvailable());
+
+            Mockito.clearInvocations(invoker1, invoker2, invoker3, invoker4, invoker5);
         }
         for (int i = 0; i < runs; i++) {
             selectedInvokers.clear();
@@ -349,14 +384,19 @@ public class AbstractClusterInvokerTest {
             selectedInvokers.add(invoker5);
             Invoker sinvoker = cluster.select(lb, invocation, invokers, selectedInvokers);
             Assert.assertEquals(true, sinvoker.isAvailable());
+
+            Mockito.clearInvocations(invoker1, invoker2, invoker3, invoker4, invoker5);
         }
         for (int i = 0; i < runs; i++) {
+
             selectedInvokers.clear();
             selectedInvokers.add(invoker1);
             selectedInvokers.add(invoker2);
             selectedInvokers.add(invoker3);
             Invoker sinvoker = cluster.select(lb, invocation, invokers, selectedInvokers);
             Assert.assertEquals(true, sinvoker.isAvailable());
+
+            Mockito.clearInvocations(invoker1, invoker2, invoker3, invoker4, invoker5);
         }
     }
 

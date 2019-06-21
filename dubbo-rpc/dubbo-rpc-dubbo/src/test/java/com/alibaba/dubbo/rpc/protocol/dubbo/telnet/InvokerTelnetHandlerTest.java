@@ -28,12 +28,15 @@ import com.alibaba.dubbo.rpc.protocol.dubbo.DubboProtocol;
 import com.alibaba.dubbo.rpc.protocol.dubbo.support.DemoService;
 import com.alibaba.dubbo.rpc.protocol.dubbo.support.ProtocolUtils;
 
-import org.easymock.EasyMock;
 import org.junit.After;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 /**
  * CountTelnetHandlerTest.java
@@ -52,57 +55,88 @@ public class InvokerTelnetHandlerTest {
     @SuppressWarnings("unchecked")
     @Test
     public void testInvokeDefaultSService() throws RemotingException {
-        mockInvoker = EasyMock.createMock(Invoker.class);
-        EasyMock.expect(mockInvoker.getInterface()).andReturn(DemoService.class).anyTimes();
-        EasyMock.expect(mockInvoker.getUrl()).andReturn(URL.valueOf("dubbo://127.0.0.1:20883/demo")).anyTimes();
-        EasyMock.expect(mockInvoker.invoke((Invocation) EasyMock.anyObject())).andReturn(new RpcResult("ok")).anyTimes();
-        mockChannel = EasyMock.createMock(Channel.class);
-        EasyMock.expect(mockChannel.getAttribute("telnet.service")).andReturn("com.alibaba.dubbo.rpc.protocol.dubbo.support.DemoService").anyTimes();
-        EasyMock.expect(mockChannel.getLocalAddress()).andReturn(NetUtils.toAddress("127.0.0.1:5555")).anyTimes();
-        EasyMock.expect(mockChannel.getRemoteAddress()).andReturn(NetUtils.toAddress("127.0.0.1:20883")).anyTimes();
-        EasyMock.replay(mockChannel, mockInvoker);
+        mockInvoker = mock(Invoker.class);
+        given(mockInvoker.getInterface()).willReturn(DemoService.class);
+        given(mockInvoker.getUrl()).willReturn(URL.valueOf("dubbo://127.0.0.1:20886/demo"));
+        given(mockInvoker.invoke(any(Invocation.class))).willReturn(new RpcResult("ok"));
+        mockChannel = mock(Channel.class);
+        given(mockChannel.getAttribute("telnet.service")).willReturn("com.alibaba.dubbo.rpc.protocol.dubbo.support.DemoService");
+        given(mockChannel.getLocalAddress()).willReturn(NetUtils.toAddress("127.0.0.1:5555"));
+        given(mockChannel.getRemoteAddress()).willReturn(NetUtils.toAddress("127.0.0.1:20886"));
+
         DubboProtocol.getDubboProtocol().export(mockInvoker);
         String result = invoke.telnet(mockChannel, "DemoService.echo(\"ok\")");
         assertTrue(result.contains("Use default service com.alibaba.dubbo.rpc.protocol.dubbo.support.DemoService.\r\n\"ok\"\r\n"));
-        EasyMock.reset(mockChannel, mockInvoker);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testInvokeByPassingNullValue() throws RemotingException {
+        mockInvoker = mock(Invoker.class);
+        given(mockInvoker.getInterface()).willReturn(DemoService.class);
+        given(mockInvoker.getUrl()).willReturn(URL.valueOf("dubbo://127.0.0.1:20886/demo"));
+        given(mockInvoker.invoke(any(Invocation.class))).willReturn(new RpcResult("ok"));
+        mockChannel = mock(Channel.class);
+        given(mockChannel.getAttribute("telnet.service")).willReturn("org.apache.dubbo.rpc.protocol.dubbo.support.DemoService");
+        given(mockChannel.getLocalAddress()).willReturn(NetUtils.toAddress("127.0.0.1:5555"));
+        given(mockChannel.getRemoteAddress()).willReturn(NetUtils.toAddress("127.0.0.1:20886"));
+        DubboProtocol.getDubboProtocol().export(mockInvoker);
+        // pass null value to parameter of primitive type
+        try {
+            invoke.telnet(mockChannel, "DemoService.add(null, 2)");
+            fail("It should cause a NullPointerException by the above code.");
+        } catch (NullPointerException ex) {
+            String message = ex.getMessage();
+            assertEquals("The type of No.1 parameter is primitive(int), but the value passed is null.", message);
+        }
+        try {
+            invoke.telnet(mockChannel, "DemoService.add(1, null)");
+            fail("It should cause a NullPointerException by the above code.");
+        } catch (NullPointerException ex) {
+            String message = ex.getMessage();
+            assertEquals("The type of No.2 parameter is primitive(long), but the value passed is null.", message);
+        }
+        // pass null value to parameter of object type
+        try {
+            invoke.telnet(mockChannel, "DemoService.sayHello(null)");
+        } catch (NullPointerException ex) {
+            fail("It shouldn't cause a NullPointerException by the above code.");
+        }
     }
 
     @SuppressWarnings("unchecked")
     @Test
     public void testInvokeAutoFindMethod() throws RemotingException {
-        mockInvoker = EasyMock.createMock(Invoker.class);
-        EasyMock.expect(mockInvoker.getInterface()).andReturn(DemoService.class).anyTimes();
-        EasyMock.expect(mockInvoker.getUrl()).andReturn(URL.valueOf("dubbo://127.0.0.1:20883/demo")).anyTimes();
-        EasyMock.expect(mockInvoker.invoke((Invocation) EasyMock.anyObject())).andReturn(new RpcResult("ok")).anyTimes();
-        mockChannel = EasyMock.createMock(Channel.class);
-        EasyMock.expect(mockChannel.getAttribute("telnet.service")).andReturn(null).anyTimes();
-        EasyMock.expect(mockChannel.getLocalAddress()).andReturn(NetUtils.toAddress("127.0.0.1:5555")).anyTimes();
-        EasyMock.expect(mockChannel.getRemoteAddress()).andReturn(NetUtils.toAddress("127.0.0.1:20883")).anyTimes();
-        EasyMock.replay(mockChannel, mockInvoker);
+        mockInvoker = mock(Invoker.class);
+        given(mockInvoker.getInterface()).willReturn(DemoService.class);
+        given(mockInvoker.getUrl()).willReturn(URL.valueOf("dubbo://127.0.0.1:20886/demo"));
+        given(mockInvoker.invoke(any(Invocation.class))).willReturn(new RpcResult("ok"));
+        mockChannel = mock(Channel.class);
+        given(mockChannel.getAttribute("telnet.service")).willReturn(null);
+        given(mockChannel.getLocalAddress()).willReturn(NetUtils.toAddress("127.0.0.1:5555"));
+        given(mockChannel.getRemoteAddress()).willReturn(NetUtils.toAddress("127.0.0.1:20886"));
+
         DubboProtocol.getDubboProtocol().export(mockInvoker);
         String result = invoke.telnet(mockChannel, "echo(\"ok\")");
         assertTrue(result.contains("ok"));
-        EasyMock.reset(mockChannel, mockInvoker);
     }
 
     @Test
     public void testMessageNull() throws RemotingException {
-        mockChannel = EasyMock.createMock(Channel.class);
-        EasyMock.expect(mockChannel.getAttribute("telnet.service")).andReturn(null).anyTimes();
-        EasyMock.replay(mockChannel);
+        mockChannel = mock(Channel.class);
+        given(mockChannel.getAttribute("telnet.service")).willReturn(null);
+
         String result = invoke.telnet(mockChannel, null);
         assertEquals("Please input method name, eg: \r\ninvoke xxxMethod(1234, \"abcd\", {\"prop\" : \"value\"})\r\ninvoke XxxService.xxxMethod(1234, \"abcd\", {\"prop\" : \"value\"})\r\ninvoke com.xxx.XxxService.xxxMethod(1234, \"abcd\", {\"prop\" : \"value\"})",
                 result);
-        EasyMock.reset(mockChannel);
     }
 
     @Test
     public void testInvaildMessage() throws RemotingException {
-        mockChannel = EasyMock.createMock(Channel.class);
-        EasyMock.expect(mockChannel.getAttribute("telnet.service")).andReturn(null).anyTimes();
-        EasyMock.replay(mockChannel);
+        mockChannel = mock(Channel.class);
+        given(mockChannel.getAttribute("telnet.service")).willReturn(null);
+
         String result = invoke.telnet(mockChannel, "(");
         assertEquals("Invalid parameters, format: service.method(args)", result);
-        EasyMock.reset(mockChannel);
     }
 }

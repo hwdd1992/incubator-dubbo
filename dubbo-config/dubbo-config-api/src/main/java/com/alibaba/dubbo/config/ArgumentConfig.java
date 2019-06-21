@@ -16,6 +16,7 @@
  */
 package com.alibaba.dubbo.config;
 
+import com.alibaba.dubbo.config.annotation.Argument;
 import com.alibaba.dubbo.config.support.Parameter;
 
 import java.io.Serializable;
@@ -27,7 +28,7 @@ public class ArgumentConfig implements Serializable {
 
     private static final long serialVersionUID = -2165482463925213595L;
 
-    //arugment index -1 represents not set
+    //argument: index -1 represents not set
     private Integer index = -1;
 
     //argument type
@@ -35,6 +36,15 @@ public class ArgumentConfig implements Serializable {
 
     //callback interface
     private Boolean callback;
+
+    public ArgumentConfig() {
+    }
+
+    public ArgumentConfig(Argument argument) {
+        this.index = argument.index();
+        this.type = argument.type();
+        this.callback = argument.callback();
+    }
 
     @Parameter(excluded = true)
     public Integer getIndex() {

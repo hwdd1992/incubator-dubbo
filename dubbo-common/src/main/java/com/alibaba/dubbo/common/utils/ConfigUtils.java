@@ -21,6 +21,7 @@ import com.alibaba.dubbo.common.extension.ExtensionLoader;
 import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
@@ -158,9 +159,7 @@ public class ConfigUtils {
     }
 
     public static void setProperties(Properties properties) {
-        if (properties != null) {
-            PROPERTIES = properties;
-        }
+        PROPERTIES = properties;
     }
 
     public static void addProperties(Properties properties) {
@@ -219,7 +218,7 @@ public class ConfigUtils {
      */
     public static Properties loadProperties(String fileName, boolean allowMultiFile, boolean optional) {
         Properties properties = new Properties();
-        if (fileName.startsWith("/")) {
+        if (checkFileNameExist(fileName)) {
             try {
                 FileInputStream input = new FileInputStream(fileName);
                 try {
@@ -228,7 +227,7 @@ public class ConfigUtils {
                     input.close();
                 }
             } catch (Throwable e) {
-                logger.warn("Failed to load " + fileName + " file from " + fileName + "(ingore this file): " + e.getMessage(), e);
+                logger.warn("Failed to load " + fileName + " file from " + fileName + "(ignore this file): " + e.getMessage(), e);
             }
             return properties;
         }
@@ -263,7 +262,7 @@ public class ConfigUtils {
             try {
                 properties.load(ClassHelper.getClassLoader().getResourceAsStream(fileName));
             } catch (Throwable e) {
-                logger.warn("Failed to load " + fileName + " file from " + fileName + "(ingore this file): " + e.getMessage(), e);
+                logger.warn("Failed to load " + fileName + " file from " + fileName + "(ignore this file): " + e.getMessage(), e);
             }
             return properties;
         }
@@ -286,11 +285,21 @@ public class ConfigUtils {
                     }
                 }
             } catch (Throwable e) {
-                logger.warn("Fail to load " + fileName + " file from " + url + "(ingore this file): " + e.getMessage(), e);
+                logger.warn("Fail to load " + fileName + " file from " + url + "(ignore this file): " + e.getMessage(), e);
             }
         }
 
         return properties;
+    }
+
+    /**
+     * check if the fileName can be found in filesystem
+     * @param fileName
+     * @return
+     */
+    private static boolean checkFileNameExist(String fileName) {
+        File file = new File(fileName);
+        return file != null && file.exists() ? true : false;
     }
 
     public static int getPid() {
@@ -314,6 +323,7 @@ public class ConfigUtils {
             try {
                 timeout = Integer.parseInt(value);
             } catch (Exception e) {
+                // ignore
             }
         } else {
             value = ConfigUtils.getProperty(Constants.SHUTDOWN_WAIT_SECONDS_KEY);
@@ -321,6 +331,7 @@ public class ConfigUtils {
                 try {
                     timeout = Integer.parseInt(value) * 1000;
                 } catch (Exception e) {
+                    // ignore
                 }
             }
         }

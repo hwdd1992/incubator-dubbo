@@ -73,6 +73,9 @@ public abstract class AbstractServiceConfig extends AbstractInterfaceConfig {
     // serialization
     private String serialization;
 
+    // provider tag
+    protected String tag;
+
     public String getVersion() {
         return version;
     }
@@ -171,7 +174,7 @@ public abstract class AbstractServiceConfig extends AbstractInterfaceConfig {
     }
 
     public void setProtocol(ProtocolConfig protocol) {
-        this.protocols = Arrays.asList(new ProtocolConfig[]{protocol});
+        this.protocols = Arrays.asList(protocol);
     }
 
     public String getAccesslog() {
@@ -207,13 +210,13 @@ public abstract class AbstractServiceConfig extends AbstractInterfaceConfig {
     @Override
     @Parameter(key = Constants.EXPORTER_LISTENER_KEY, append = true)
     public String getListener() {
-        return super.getListener();
+        return listener;
     }
 
     @Override
     public void setListener(String listener) {
         checkMultiExtension(ExporterListener.class, "listener", listener);
-        super.setListener(listener);
+        this.listener = listener;
     }
 
     public Boolean isRegister() {
@@ -238,6 +241,15 @@ public abstract class AbstractServiceConfig extends AbstractInterfaceConfig {
 
     public void setSerialization(String serialization) {
         this.serialization = serialization;
+    }
+
+    @Parameter(key = "dubbo.tag")
+    public String getTag() {
+        return tag;
+    }
+
+    public void setTag(String tag) {
+        this.tag = tag;
     }
 
 }

@@ -17,7 +17,6 @@
 package com.alibaba.dubbo.rpc.protocol.dubbo;
 
 import com.alibaba.dubbo.common.Constants;
-import com.alibaba.dubbo.common.URL;
 import com.alibaba.dubbo.common.Version;
 import com.alibaba.dubbo.common.io.Bytes;
 import com.alibaba.dubbo.common.io.UnsafeByteArrayInputStream;
@@ -25,7 +24,6 @@ import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
 import com.alibaba.dubbo.common.serialize.ObjectInput;
 import com.alibaba.dubbo.common.serialize.ObjectOutput;
-import com.alibaba.dubbo.common.serialize.Serialization;
 import com.alibaba.dubbo.common.utils.ReflectUtils;
 import com.alibaba.dubbo.common.utils.StringUtils;
 import com.alibaba.dubbo.remoting.Channel;
@@ -49,10 +47,13 @@ import static com.alibaba.dubbo.rpc.protocol.dubbo.CallbackServiceCodec.encodeIn
 public class DubboCodec extends ExchangeCodec implements Codec2 {
 
     public static final String NAME = "dubbo";
-    public static final String DUBBO_VERSION = Version.getVersion(DubboCodec.class, Version.getVersion());
+    public static final String DUBBO_VERSION = Version.getProtocolVersion();
     public static final byte RESPONSE_WITH_EXCEPTION = 0;
     public static final byte RESPONSE_VALUE = 1;
     public static final byte RESPONSE_NULL_VALUE = 2;
+    public static final byte RESPONSE_WITH_EXCEPTION_WITH_ATTACHMENTS = 3;
+    public static final byte RESPONSE_VALUE_WITH_ATTACHMENTS = 4;
+    public static final byte RESPONSE_NULL_VALUE_WITH_ATTACHMENTS = 5;
     public static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
     public static final Class<?>[] EMPTY_CLASS_ARRAY = new Class<?>[0];
     private static final Logger log = LoggerFactory.getLogger(DubboCodec.class);
@@ -60,7 +61,6 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
     @Override
     protected Object decodeBody(Channel channel, InputStream is, byte[] header) throws IOException {
         byte flag = header[2], proto = (byte) (flag & SERIALIZATION_MASK);
-        Serialization s = CodecSupport.getSerialization(channel.getUrl(), proto);
         // get request id.
         long id = Bytes.bytes2long(header, 4);
         if ((flag & FLAG_REQUEST) == 0) {
@@ -72,13 +72,14 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
             // get status.
             byte status = header[3];
             res.setStatus(status);
-            if (status == Response.OK) {
-                try {
+            try {
+                ObjectInput in = CodecSupport.deserialize(channel.getUrl(), is, proto);
+                if (status == Response.OK) {
                     Object data;
                     if (res.isHeartbeat()) {
-                        data = decodeHeartbeatData(channel, deserialize(s, channel.getUrl(), is));
+                        data = decodeHeartbeatData(channel, in);
                     } else if (res.isEvent()) {
-                        data = decodeEventData(channel, deserialize(s, channel.getUrl(), is));
+                        data = decodeEventData(channel, in);
                     } else {
                         DecodeableRpcResult result;
                         if (channel.getUrl().getParameter(
@@ -95,31 +96,32 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
                         data = result;
                     }
                     res.setResult(data);
-                } catch (Throwable t) {
-                    if (log.isWarnEnabled()) {
-                        log.warn("Decode response failed: " + t.getMessage(), t);
-                    }
-                    res.setStatus(Response.CLIENT_ERROR);
-                    res.setErrorMessage(StringUtils.toString(t));
+                } else {
+                    res.setErrorMessage(in.readUTF());
                 }
-            } else {
-                res.setErrorMessage(deserialize(s, channel.getUrl(), is).readUTF());
+            } catch (Throwable t) {
+                if (log.isWarnEnabled()) {
+                    log.warn("Decode response failed: " + t.getMessage(), t);
+                }
+                res.setStatus(Response.CLIENT_ERROR);
+                res.setErrorMessage(StringUtils.toString(t));
             }
             return res;
         } else {
             // decode request.
             Request req = new Request(id);
-            req.setVersion("2.0.0");
+            req.setVersion(Version.getProtocolVersion());
             req.setTwoWay((flag & FLAG_TWOWAY) != 0);
             if ((flag & FLAG_EVENT) != 0) {
                 req.setEvent(Request.HEARTBEAT_EVENT);
             }
             try {
                 Object data;
+                ObjectInput in = CodecSupport.deserialize(channel.getUrl(), is, proto);
                 if (req.isHeartbeat()) {
-                    data = decodeHeartbeatData(channel, deserialize(s, channel.getUrl(), is));
+                    data = decodeHeartbeatData(channel, in);
                 } else if (req.isEvent()) {
-                    data = decodeEventData(channel, deserialize(s, channel.getUrl(), is));
+                    data = decodeEventData(channel, in);
                 } else {
                     DecodeableRpcInvocation inv;
                     if (channel.getUrl().getParameter(
@@ -146,11 +148,6 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
         }
     }
 
-    private ObjectInput deserialize(Serialization serialization, URL url, InputStream is)
-            throws IOException {
-        return serialization.deserialize(url, is);
-    }
-
     private byte[] readMessageData(InputStream is) throws IOException {
         if (is.available() > 0) {
             byte[] result = new byte[is.available()];
@@ -162,9 +159,19 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
 
     @Override
     protected void encodeRequestData(Channel channel, ObjectOutput out, Object data) throws IOException {
+        encodeRequestData(channel, out, data, DUBBO_VERSION);
+    }
+
+    @Override
+    protected void encodeResponseData(Channel channel, ObjectOutput out, Object data) throws IOException {
+        encodeResponseData(channel, out, data, DUBBO_VERSION);
+    }
+
+    @Override
+    protected void encodeRequestData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
         RpcInvocation inv = (RpcInvocation) data;
 
-        out.writeUTF(inv.getAttachment(Constants.DUBBO_VERSION_KEY, DUBBO_VERSION));
+        out.writeUTF(version);
         out.writeUTF(inv.getAttachment(Constants.PATH_KEY));
         out.writeUTF(inv.getAttachment(Constants.VERSION_KEY));
 
@@ -179,21 +186,28 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
     }
 
     @Override
-    protected void encodeResponseData(Channel channel, ObjectOutput out, Object data) throws IOException {
+    protected void encodeResponseData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
         Result result = (Result) data;
-
+        // currently, the version value in Response records the version of Request
+        boolean attach = Version.isSupportResponseAttatchment(version);
         Throwable th = result.getException();
         if (th == null) {
             Object ret = result.getValue();
             if (ret == null) {
-                out.writeByte(RESPONSE_NULL_VALUE);
+                out.writeByte(attach ? RESPONSE_NULL_VALUE_WITH_ATTACHMENTS : RESPONSE_NULL_VALUE);
             } else {
-                out.writeByte(RESPONSE_VALUE);
+                out.writeByte(attach ? RESPONSE_VALUE_WITH_ATTACHMENTS : RESPONSE_VALUE);
                 out.writeObject(ret);
             }
         } else {
-            out.writeByte(RESPONSE_WITH_EXCEPTION);
+            out.writeByte(attach ? RESPONSE_WITH_EXCEPTION_WITH_ATTACHMENTS : RESPONSE_WITH_EXCEPTION);
             out.writeObject(th);
+        }
+
+        if (attach) {
+            // returns current version of Response to consumer side.
+            result.getAttachments().put(Constants.DUBBO_VERSION_KEY, Version.getProtocolVersion());
+            out.writeObject(result.getAttachments());
         }
     }
 }

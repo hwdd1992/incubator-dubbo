@@ -78,7 +78,7 @@ public @interface Reference {
 
     String layer() default "";
 
-    int retries() default 0;
+    int retries() default 2;
 
     String loadbalance() default "";
 
@@ -111,5 +111,15 @@ public @interface Reference {
     String monitor() default "";
 
     String[] registry() default {};
+
+    /**
+     * The communication protocol of Dubbo Service
+     *
+     * @return the default value is ""
+     * @since 2.6.6
+     */
+    String protocol() default "";  
+  
+    Method[] methods() default {};
 
 }

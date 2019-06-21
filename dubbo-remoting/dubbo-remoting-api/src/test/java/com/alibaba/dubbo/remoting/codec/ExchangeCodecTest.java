@@ -18,6 +18,7 @@ package com.alibaba.dubbo.remoting.codec;
 
 
 import com.alibaba.dubbo.common.Constants;
+import com.alibaba.dubbo.common.Version;
 import com.alibaba.dubbo.common.extension.ExtensionLoader;
 import com.alibaba.dubbo.common.io.Bytes;
 import com.alibaba.dubbo.common.io.UnsafeByteArrayOutputStream;
@@ -147,6 +148,23 @@ public class ExchangeCodecTest extends TelnetCodecTest {
     }
 
     @Test
+    public void testInvalidSerializaitonId() throws Exception {
+        byte[] header = new byte[]{MAGIC_HIGH, MAGIC_LOW, (byte)0x8F, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        Object obj =  decode(header);
+        Assert.assertTrue(obj instanceof Request);
+        Request request = (Request) obj;
+        Assert.assertTrue(request.isBroken());
+        Assert.assertTrue(request.getData() instanceof IOException);
+        header = new byte[]{MAGIC_HIGH, MAGIC_LOW, (byte)0x1F, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+        obj = decode(header);
+        Assert.assertTrue(obj instanceof Response);
+        Response response = (Response) obj;
+        Assert.assertEquals(response.getStatus(), Response.CLIENT_ERROR);
+        Assert.assertTrue(response.getErrorMessage().contains("IOException"));
+    }
+
+    @Test
     public void test_Decode_Check_Payload() throws IOException {
         byte[] header = new byte[]{MAGIC_HIGH, MAGIC_LOW, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
         byte[] request = assemblyDataProtocol(header);
@@ -216,7 +234,7 @@ public class ExchangeCodecTest extends TelnetCodecTest {
         Assert.assertEquals(person, obj.getData());
         Assert.assertEquals(true, obj.isTwoWay());
         Assert.assertEquals(true, obj.isEvent());
-        Assert.assertEquals("2.0.0", obj.getVersion());
+        Assert.assertEquals(Version.getProtocolVersion(), obj.getVersion());
         System.out.println(obj);
     }
 
@@ -231,7 +249,7 @@ public class ExchangeCodecTest extends TelnetCodecTest {
         Assert.assertEquals(event, obj.getData());
         Assert.assertEquals(true, obj.isTwoWay());
         Assert.assertEquals(true, obj.isEvent());
-        Assert.assertEquals("2.0.0", obj.getVersion());
+        Assert.assertEquals(Version.getProtocolVersion(), obj.getVersion());
         System.out.println(obj);
     }
 
@@ -244,7 +262,7 @@ public class ExchangeCodecTest extends TelnetCodecTest {
         Assert.assertEquals(null, obj.getData());
         Assert.assertEquals(true, obj.isTwoWay());
         Assert.assertEquals(true, obj.isHeartbeat());
-        Assert.assertEquals("2.0.0", obj.getVersion());
+        Assert.assertEquals(Version.getProtocolVersion(), obj.getVersion());
         System.out.println(obj);
     }
 
@@ -259,7 +277,7 @@ public class ExchangeCodecTest extends TelnetCodecTest {
         Assert.assertEquals(person, obj.getData());
         Assert.assertEquals(true, obj.isTwoWay());
         Assert.assertEquals(false, obj.isHeartbeat());
-        Assert.assertEquals("2.0.0", obj.getVersion());
+        Assert.assertEquals(Version.getProtocolVersion(), obj.getVersion());
         System.out.println(obj);
     }
 
@@ -350,7 +368,7 @@ public class ExchangeCodecTest extends TelnetCodecTest {
         Assert.assertEquals(response.isHeartbeat(), obj.isHeartbeat());
         Assert.assertEquals(person, obj.getResult());
         // encode response verson ??
-//        Assert.assertEquals(response.getVersion(), obj.getVersion());
+//        Assert.assertEquals(response.getProtocolVersion(), obj.getVersion());
 
     }
 
@@ -380,7 +398,7 @@ public class ExchangeCodecTest extends TelnetCodecTest {
         Assert.assertEquals(response.isHeartbeat(), obj.isHeartbeat());
         Assert.assertEquals(badString, obj.getErrorMessage());
         Assert.assertEquals(null, obj.getResult());
-//        Assert.assertEquals(response.getVersion(), obj.getVersion());
+//        Assert.assertEquals(response.getProtocolVersion(), obj.getVersion());
     }
 
     // http://code.alibabatech.com/jira/browse/DUBBO-392
@@ -388,7 +406,7 @@ public class ExchangeCodecTest extends TelnetCodecTest {
     public void testMessageLengthGreaterThanMessageActualLength() throws Exception {
         Channel channel = getCliendSideChannel(url);
         Request request = new Request(1L);
-        request.setVersion("2.0.0");
+        request.setVersion(Version.getProtocolVersion());
         Date date = new Date();
         request.setData(date);
         ChannelBuffer encodeBuffer = ChannelBuffers.dynamicBuffer(1024);

@@ -515,6 +515,12 @@ public class ExtensionLoader<T> {
                     if (method.getName().startsWith("set")
                             && method.getParameterTypes().length == 1
                             && Modifier.isPublic(method.getModifiers())) {
+                        /**
+                         * Check {@link DisableInject} to see if we need auto injection for this property
+                         */
+                        if (method.getAnnotation(DisableInject.class) != null) {
+                            continue;
+                        }
                         Class<?> pt = method.getParameterTypes()[0];
                         try {
                             String property = method.getName().length() > 3 ? method.getName().substring(3, 4).toLowerCase() + method.getName().substring(4) : "";
@@ -664,13 +670,8 @@ public class ExtensionLoader<T> {
             clazz.getConstructor();
             if (name == null || name.length() == 0) {
                 name = findAnnotationName(clazz);
-                if (name == null || name.length() == 0) {
-                    if (clazz.getSimpleName().length() > type.getSimpleName().length()
-                            && clazz.getSimpleName().endsWith(type.getSimpleName())) {
-                        name = clazz.getSimpleName().substring(0, clazz.getSimpleName().length() - type.getSimpleName().length()).toLowerCase();
-                    } else {
-                        throw new IllegalStateException("No such extension name for the class " + clazz.getName() + " in the config " + resourceURL);
-                    }
+                if (name.length() == 0) {
+                    throw new IllegalStateException("No such extension name for the class " + clazz.getName() + " in the config " + resourceURL);
                 }
             }
             String[] names = NAME_SEPARATOR.split(name);

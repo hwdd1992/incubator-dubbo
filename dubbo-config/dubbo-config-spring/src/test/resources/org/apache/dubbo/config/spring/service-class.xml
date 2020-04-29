@@ -15,23 +15,22 @@
   limitations under the License.
   -->
 <beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xmlns:dubbo="http://dubbo.apache.org/schema/dubbo"
-  xmlns="http://www.springframework.org/schema/beans"
-  xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+       xmlns:dubbo="http://dubbo.apache.org/schema/dubbo"
+       xmlns="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
     http://dubbo.apache.org/schema/dubbo http://dubbo.apache.org/schema/dubbo/dubbo.xsd
     ">
 
-  <dubbo:application name="service-class"/>
+    <dubbo:application name="service-class"/>
 
-  <dubbo:registry address="N/A"/>
+    <dubbo:registry address="N/A"/>
 
-  <dubbo:protocol name="dubbo" port="20887"/>
+    <dubbo:protocol name="dubbo" port="20887"/>
 
-
-  <bean id="demoServiceImpl" class="org.apache.dubbo.config.spring.impl.DemoServiceImpl"/>
-  <!-- service configuration -->
-  <dubbo:service interface="org.apache.dubbo.config.spring.api.DemoService">
-    <property name="prefix" value="welcome:"/>
-  </dubbo:service>
+    <!-- service configuration -->
+    <dubbo:service interface="org.apache.dubbo.config.spring.api.DemoService"
+                   class="org.apache.dubbo.config.spring.impl.DemoServiceImpl">
+        <property name="prefix" value="welcome:"/>
+    </dubbo:service>
 
 </beans>
